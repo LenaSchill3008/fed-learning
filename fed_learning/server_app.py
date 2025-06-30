@@ -1,23 +1,29 @@
-"""fed-learning: A Flower / sklearn app."""
+# server_app.py
 
 from flwr.common import Context, ndarrays_to_parameters
 from flwr.server import ServerApp, ServerAppComponents, ServerConfig
 from flwr.server.strategy import FedAvg
-from fed_learning.task import get_model, get_model_params, set_initial_params
 
+from fed_learning.task import (
+    get_model,
+    get_model_params,
+    set_initial_params,
+    set_dataset,
+)
 
 def server_fn(context: Context):
-    # Read from config
-    num_rounds = context.run_config["num-server-rounds"]
-
-    # Create LogisticRegression Model
-    penalty = context.run_config["penalty"]
+    # Read config values
+    num_rounds   = context.run_config["num-server-rounds"]
+    penalty      = context.run_config["penalty"]
     local_epochs = context.run_config["local-epochs"]
+    dataset_name = context.run_config.get("dataset", "iris")
+
+    # Set the global dataset
+    set_dataset(dataset_name)
+
+    # Initialize model and parameters
     model = get_model(penalty, local_epochs)
-
-    # Setting initial parameters, akin to model.compile for keras models
     set_initial_params(model)
-
     initial_parameters = ndarrays_to_parameters(get_model_params(model))
 
     # Define strategy
@@ -31,6 +37,5 @@ def server_fn(context: Context):
 
     return ServerAppComponents(strategy=strategy, config=config)
 
-
-# Create ServerApp
+# Create the app
 app = ServerApp(server_fn=server_fn)

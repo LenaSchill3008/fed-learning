@@ -5,16 +5,16 @@ build-backend = "hatchling.build"
 [project]
 name = "fed-learning"
 version = "1.0.0"
-description = ""
+description = "Federated Logistic Regression with Iris and Adult datasets"
 license = "Apache-2.0"
 dependencies = [
     "flwr[simulation]>=1.19.0",
-    "flwr-datasets[vision]>=0.5.0",
-    "scikit-learn>=1.6.1",
+    "scikit-learn>=1.3.0",          
+    "pandas>=2.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["."]
+packages = ["fed_learning"]
 
 [tool.flwr.app]
 publisher = "lenaschill"
@@ -26,7 +26,8 @@ clientapp = "fed_learning.client_app:app"
 [tool.flwr.app.config]
 num-server-rounds = 3
 penalty = "l2"
-local-epochs = 1
+local-epochs = 5
+dataset = "iris"  # or "adult" (switch in CLI or here)
 
 [tool.flwr.federations]
 default = "local-simulation"
