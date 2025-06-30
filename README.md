@@ -1,32 +1,48 @@
-# fed-learning: A Flower / sklearn app
+# fed-learning · Flower ⚘ + scikit-learn
 
-## Install dependencies and project
+Federated-learning demo on two tabular datasets (**Iris** and **Adult
+Income**) using [Flower](https://flower.ai).
+
+---
+
+## Install
 
 ```bash
+git clone <repo>
+cd fed-learning
+python -m venv .venv && source .venv/bin/activate   # optional
 pip install -e .
 ```
 
-## Run with the Simulation Engine
+---
 
-In the `fed-learning` directory, use `flwr run` to run a local simulation:
+## One simulation
 
 ```bash
-flwr run .
+flwr run .                                # defaults to Iris
+flwr run . --run-config 'dataset="adult"' # run Adult
 ```
 
-Refer to the [How to Run Simulations](https://flower.ai/docs/framework/how-to-run-simulations.html) guide in the documentation for advice on how to optimize your simulations.
+Tune with `num-server-rounds`, `local-epochs`, `penalty`, etc.
 
-## Run with the Deployment Engine
+---
 
-Follow this [how-to guide](https://flower.ai/docs/framework/how-to-run-flower-with-deployment-engine.html) to run the same app in this example but with Flower's Deployment Engine. After that, you might be interested in setting up [secure TLS-enabled communications](https://flower.ai/docs/framework/how-to-enable-tls-connections.html) and [SuperNode authentication](https://flower.ai/docs/framework/how-to-authenticate-supernodes.html) in your federation.
+## Batch run + CSV
 
-You can run Flower on Docker too! Check out the [Flower with Docker](https://flower.ai/docs/framework/docker/index.html) documentation.
+`run.sh` launches both datasets, grabs **round-5** loss/accuracy from each
+log and appends to `results/results.csv`.
+
+```bash
+chmod +x run.sh   # once
+./run.sh
+```
+
+All logs live in `results/*.log`.
+
+---
 
 ## Resources
 
-- Flower website: [flower.ai](https://flower.ai/)
-- Check the documentation: [flower.ai/docs](https://flower.ai/docs/)
-- Give Flower a ⭐️ on GitHub: [GitHub](https://github.com/adap/flower)
-- Join the Flower community!
-  - [Flower Slack](https://flower.ai/join-slack/)
-  - [Flower Discuss](https://discuss.flower.ai/)
+* Docs  <https://flower.ai/docs>
+* GitHub ⭐ <https://github.com/adap/flower>
+* Community [Slack](https://flower.ai/join-slack/) | [Discuss](https://discuss.flower.ai/)
