@@ -1,6 +1,3 @@
-# fed_learning/rf_client_app.py
-"""Random Forest client for federated learning with hyperparameter search."""
-
 import warnings
 import numpy as np
 from flwr.client import ClientApp, NumPyClient
@@ -22,9 +19,10 @@ class RFFlowerClient(NumPyClient):
         self.model = None
 
     def get_parameters(self, config=None):
-        """Return model parameters as numpy arrays."""
+
         if self.model is None or not hasattr(self.model, 'estimators_'):
             # Return default hyperparameters as numpy array
+
             return [np.array([10.0, 5.0, 2.0, 1.0])]
         
         # Return hyperparameters as numpy array
@@ -37,7 +35,7 @@ class RFFlowerClient(NumPyClient):
         return [np.array(hyperparams)]
 
     def set_parameters(self, parameters):
-        """Set model parameters from numpy arrays."""
+
         if parameters and len(parameters) > 0:
             hyperparams = parameters[0].tolist()
             hyperparams = self._validate_hyperparams(hyperparams)
@@ -45,8 +43,13 @@ class RFFlowerClient(NumPyClient):
         else:
             self.model = create_rf_model()
     
+
     def _validate_hyperparams(self, hyperparams):
-        """Ensure hyperparameters are within valid ranges for RandomForest."""
+
+        """
+        Ensure hyperparameters are within valid ranges for RandomForest
+        """
+
         if len(hyperparams) >= 4:
             hyperparams[0] = max(1, int(round(hyperparams[0])))  # n_estimators >= 1
             hyperparams[1] = max(1, int(round(hyperparams[1])))  # max_depth >= 1
@@ -55,7 +58,11 @@ class RFFlowerClient(NumPyClient):
         return hyperparams
 
     def _generate_random_hyperparams(self):
-        """Generate random hyperparameters for Random Forest."""
+
+        """
+        Generate random hyperparameters for Random Forest
+        """
+
         n_estimators = np.random.randint(5, 100)  # 5 to 50 trees
         max_depth = np.random.choice([40, np.random.randint(3, 20)])  # None (40) or 3-20
         min_samples_split = np.random.randint(2, 10)  # 2 to 10
@@ -64,7 +71,11 @@ class RFFlowerClient(NumPyClient):
         return [float(n_estimators), float(max_depth), float(min_samples_split), float(min_samples_leaf)]
 
     def _hyperparameter_search(self):
-        """Perform random hyperparameter search and return best hyperparameters."""
+
+        """
+        Perform random hyperparameter search and return best hyperparameters
+        """
+
         n_trials = 50  # Fixed number of random trials
         
         # Split training data for validation (80% train, 20% validation)
@@ -105,7 +116,11 @@ class RFFlowerClient(NumPyClient):
         return best_hyperparams
 
     def fit(self, parameters, config):
-        """Train the model with hyperparameter search and return updated parameters."""
+
+        """
+        Train the model with hyperparameter search and return updated parameters
+        """
+
         # Perform hyperparameter search to find best hyperparameters
         best_hyperparams = self._hyperparameter_search()
         
@@ -123,8 +138,9 @@ class RFFlowerClient(NumPyClient):
         
         return current_params, len(self.X_train), train_metrics
 
+
     def evaluate(self, parameters, config):
-        """Evaluate the model and return metrics."""
+
         # Create a model with received parameters and train it
         if parameters and len(parameters) > 0:
             hyperparams = parameters[0].tolist()

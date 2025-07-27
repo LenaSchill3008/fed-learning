@@ -1,5 +1,3 @@
-# server_app.py
-
 from typing import Dict, List, Tuple
 from flwr.common import Context, ndarrays_to_parameters, Metrics
 from flwr.server import ServerApp, ServerAppComponents, ServerConfig

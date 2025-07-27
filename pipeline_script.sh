@@ -94,7 +94,7 @@ if [ -f "pyproject.toml" ]; then
     pip install -e .
 else
     print_step "Installing required packages..."
-    pip install "flwr[simulation]>=1.19.0" "scikit-learn>=1.3.0" "pandas>=2.0.0" "matplotlib>=3.10.3" "seaborn>=0:13.2"
+    pip install "flwr[simulation]>=1.19.0" "scikit-learn>=1.3.0" "pandas>=2.0.0"
 fi
 print_success "Dependencies installed"
 
@@ -105,19 +105,7 @@ print_success "Previous results cleaned"
 
 # Run federated learning experiments
 print_step "Running federated learning experiments..."
-echo "This may take several minutes..."
-if python run.py; then
-    print_success "Federated experiments completed"
-else
-    print_error "Federated experiments failed"
-    exit 1
-fi
-
-# Check federated results
-if [ ! -f "$RESULTS_DIR/results.csv" ]; then
-    print_error "Federated results file not generated"
-    exit 1
-fi
+echo "This may take a while..."
 
 # Run centralized learning experiments  
 print_step "Running centralized learning experiments..."

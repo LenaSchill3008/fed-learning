@@ -1,6 +1,3 @@
-# fed_learning/fed_random_forest.py
-"""Simplified Federated Random Forest based on Hongwei-Z approach"""
-
 import numpy as np
 from typing import List, Dict, Any, Tuple
 from sklearn.ensemble import RandomForestClassifier
@@ -8,7 +5,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 
 
 def get_rf_hyperparams(model: RandomForestClassifier) -> List[float]:
-    """Extract hyperparameters from a trained Random Forest model."""
+
     return [
         float(model.n_estimators),
         float(model.max_depth if model.max_depth is not None else 40),
@@ -18,7 +15,7 @@ def get_rf_hyperparams(model: RandomForestClassifier) -> List[float]:
 
 
 def set_rf_hyperparams(hyperparams: List[float]) -> Dict[str, Any]:
-    """Convert hyperparameters list to RandomForest parameters dict."""
+
     # Ensure hyperparameters are within valid ranges
     n_estimators = max(1, int(round(hyperparams[0])))
     max_depth = max(1, int(round(hyperparams[1]))) if hyperparams[1] != 40 else None
@@ -36,7 +33,7 @@ def set_rf_hyperparams(hyperparams: List[float]) -> Dict[str, Any]:
 
 
 def create_rf_model(hyperparams: List[float] = None) -> RandomForestClassifier:
-    """Create a Random Forest model with given or default hyperparameters."""
+   
     if hyperparams is None:
         # Default hyperparameters
         return RandomForestClassifier(
@@ -53,7 +50,7 @@ def create_rf_model(hyperparams: List[float] = None) -> RandomForestClassifier:
 
 
 def calculate_rf_metrics(model: RandomForestClassifier, X: np.ndarray, y: np.ndarray) -> Dict[str, float]:
-    """Calculate all metrics for random forest model."""
+   
     if not hasattr(model, 'classes_'):
         return {"Accuracy": 0.0, "Precision": 0.0, "Recall": 0.0, "F1_Score": 0.0}
     

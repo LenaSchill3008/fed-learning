@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""
-Centralized ML training for comparison with federated learning.
-Trains Logistic Regression, Random Forest, and SVM on full datasets.
-"""
-
 import numpy as np
 import pandas as pd
 import warnings
@@ -19,6 +13,7 @@ from typing import Dict, Tuple
 
 
 class CentralizedMLRunner:
+
     def __init__(self, result_dir: str = "results"):
         self.result_dir = Path(result_dir)
         self.result_dir.mkdir(exist_ok=True)
@@ -37,14 +32,16 @@ class CentralizedMLRunner:
         
         self.init_results_csv()
     
+
     def init_results_csv(self):
-        """Initialize the centralized results CSV file."""
+   
         columns = ["model", "dataset", "loss", "accuracy", "precision", "recall", "f1_score"]
         df = pd.DataFrame(columns=columns)
         df.to_csv(self.csv_file, index=False)
     
-    def load_and_preprocess_dataset(self, dataset_name: str) -> Tuple[np.ndarray, np.ndarray]:
-        """Load and preprocess dataset same way as federated version."""
+
+    def load_and_preprocess_dataset(self, dataset_name):
+
         dataset_info = self.datasets[dataset_name]
         df = pd.read_csv(dataset_info["path"])
         label_col = dataset_info["label_col"]
@@ -62,8 +59,9 @@ class CentralizedMLRunner:
         
         return X_final, y_final
     
+
     def train_logistic_regression(self, dataset_name: str) -> Dict[str, float]:
-        """Train Logistic Regression on full dataset."""
+ 
         print(f"Training Logistic Regression on {dataset_name}")
         
         X, y = self.load_and_preprocess_dataset(dataset_name)
@@ -105,8 +103,8 @@ class CentralizedMLRunner:
             "f1_score": f1
         }
     
-    def train_random_forest(self, dataset_name: str) -> Dict[str, float]:
-        """Train Random Forest on full dataset with default parameters."""
+    def train_random_forest(self, dataset_name) :
+
         print(f"Training Random Forest on {dataset_name}")
         
         X, y = self.load_and_preprocess_dataset(dataset_name)
@@ -116,7 +114,7 @@ class CentralizedMLRunner:
             X, y, test_size=0.2, stratify=y, random_state=42
         )
         
-        # Use default hyperparameters (no search)
+        # Use default hyperparameters (no hyperparam search)
         model = RandomForestClassifier(
             n_estimators=10,
             max_depth=5,
@@ -151,7 +149,7 @@ class CentralizedMLRunner:
             "f1_score": f1
         }
     
-    def train_svm(self, dataset_name: str) -> Dict[str, float]:
+    def train_svm(self, dataset_name):
         """Train SVM on full dataset with default parameters."""
         print(f"Training SVM on {dataset_name}")
         
@@ -216,6 +214,7 @@ class CentralizedMLRunner:
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
         df.to_csv(self.csv_file, index=False)
     
+
     def run_all_experiments(self):
         """Run all centralized ML experiments."""
         models = ["logistic_regression", "random_forest", "svm"]
@@ -253,8 +252,9 @@ class CentralizedMLRunner:
         # Display final results
         self.display_results()
     
+    
     def display_results(self):
-        """Display the centralized results table."""
+
         try:
             df = pd.read_csv(self.csv_file)
             print("\nFINAL RESULTS - Centralized ML:")
@@ -265,7 +265,7 @@ class CentralizedMLRunner:
 
 
 def main():
-    """Main function to run centralized experiments."""
+
     runner = CentralizedMLRunner()
     runner.run_all_experiments()
 

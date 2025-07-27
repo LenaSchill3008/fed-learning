@@ -1,6 +1,3 @@
-# fed_learning/rf_server_app.py
-"""Random Forest server for federated learning - fixed implementation."""
-
 import numpy as np
 from typing import Dict, List, Tuple, Optional
 from flwr.common import Context, Metrics, ndarrays_to_parameters

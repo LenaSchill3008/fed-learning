@@ -2,11 +2,9 @@ model,dataset,strategy,loss,accuracy,precision,recall,f1_score
 logistic_regression,iris,fedavg,0.151492,0.991667,0.99187,0.991667,0.991665
 logistic_regression,iris,fedprox,0.152309,0.991667,0.99187,0.991667,0.991665
 logistic_regression,iris,fedmedian,0.148935,1.0,1.0,1.0,1.0
-logistic_regression,iris,fedlag,1.015729,0.991667,0.99187,0.991667,0.991665
 logistic_regression,adult,fedavg,0.318691,0.85139,0.731674,0.604655,0.662128
 logistic_regression,adult,fedprox,0.318576,0.851428,0.731816,0.604655,0.662186
 logistic_regression,adult,fedmedian,0.320278,0.850891,0.710782,0.642117,0.674707
-logistic_regression,adult,fedlag,0.693147,0.759175,0.0,0.0,0.0
 random_forest,iris,fedavg,0.0,1.0,1.0,1.0,1.0
 random_forest,iris,fedprox,0.0,1.0,1.0,1.0,1.0
 random_forest,iris,fedmedian,0.0,1.0,1.0,1.0,1.0

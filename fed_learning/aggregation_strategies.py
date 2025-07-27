@@ -7,7 +7,10 @@ logger = logging.getLogger(__name__)
 
 
 class AggregationStrategy(ABC):
-    """Abstract base class for federated learning aggregation strategies."""
+    
+    """
+    Abstract base class for federated learning aggregation strategies
+    """
     
     def __init__(self, **kwargs):
         self.round_num = 0
@@ -19,15 +22,14 @@ class AggregationStrategy(ABC):
                  client_weights: List[float], 
                  global_params: List[np.ndarray],
                  **kwargs) -> List[np.ndarray]:
-        """Aggregate client parameters into new global parameters."""
         pass
     
     def update_round(self):
-        """Update round number and history."""
+        """Update round number and history"""
         self.round_num += 1
     
     def reset(self):
-        """Reset strategy state."""
+        """Reset strategy state"""
         self.round_num = 0
         self.history = []
 
@@ -114,7 +116,7 @@ class FedMedianStrategy(AggregationStrategy):
             for client_idx, params in enumerate(client_params):
                 param_stack[client_idx] = params[param_idx]
             
-            # Compute coordinate-wise median along the client axis (axis=0)
+            # Compute coordinate-wise median along the client axis
             median_param = np.median(param_stack, axis=0)
             aggregated_params.append(median_param)
         
@@ -131,6 +133,7 @@ AGGREGATION_STRATEGIES = {
 
 
 def get_strategy_params_for_dataset(strategy_name: str, dataset: str) -> dict:
+    
     """
     Get dataset-specific parameters for strategies to improve stability.
     """
@@ -151,21 +154,12 @@ def get_strategy_params_for_dataset(strategy_name: str, dataset: str) -> dict:
     return strategy_params.get(strategy_name.lower(), {})
 
 
-def get_strategy(strategy_name: str, dataset: str = None, **kwargs) -> AggregationStrategy:
+def get_strategy(strategy_name, dataset = None, **kwargs):
+
     """
-    Factory function to get aggregation strategy by name with dataset-specific parameters.
-    
-    Args:
-        strategy_name: Name of the strategy (case-insensitive)
-        dataset: Name of the dataset (for parameter optimization)
-        **kwargs: Strategy-specific parameters (override defaults)
-    
-    Returns:
-        AggregationStrategy instance
-    
-    Raises:
-        ValueError: If strategy name is not recognized
+    get aggregation strategy by name with dataset-specific parameters.
     """
+
     strategy_name = strategy_name.lower()
     if strategy_name not in AGGREGATION_STRATEGIES:
         available = ', '.join(AGGREGATION_STRATEGIES.keys())
@@ -181,7 +175,7 @@ def get_strategy(strategy_name: str, dataset: str = None, **kwargs) -> Aggregati
     return AGGREGATION_STRATEGIES[strategy_name](**kwargs)
 
 
-def list_strategies() -> List[str]:
+def list_strategies():
     """Return list of available aggregation strategy names."""
     return list(AGGREGATION_STRATEGIES.keys())
 

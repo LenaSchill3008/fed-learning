@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-"""
-Python runner for federated learning experiments.
-Runs Logistic Regression, Random Forest, and SVM on Iris and Adult datasets
-with multiple aggregation strategies.
-"""
-
 import subprocess
 import pandas as pd
 import re
@@ -20,7 +13,9 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 class FederatedLearningRunner:
-    def __init__(self, result_dir: str = "results"):
+
+
+    def __init__(self, result_dir = "results"):
         self.result_dir = Path(result_dir)
         self.result_dir.mkdir(exist_ok=True)
         self.csv_file = self.result_dir / "results.csv"
@@ -28,14 +23,20 @@ class FederatedLearningRunner:
         # Initialize results CSV with strategy column
         self.init_results_csv()
     
+
     def init_results_csv(self):
-        """Initialize the results CSV file with headers including strategy."""
+
         columns = ["model", "dataset", "strategy", "loss", "accuracy", "precision", "recall", "f1_score"]
         df = pd.DataFrame(columns=columns)
         df.to_csv(self.csv_file, index=False)
     
-    def run_experiment(self, model_type: str, dataset: str, strategy: str = "fedavg", rounds: int = 5) -> Dict[str, str]:
-        """Run a single federated learning experiment with specified strategy."""
+
+    def run_experiment(self, model_type, dataset, strategy = "fedavg", rounds = 5):
+        
+        """
+        Run a single federated learning experiment with specified strategy
+        """
+
         print(f"Running {model_type} on {dataset} dataset with {strategy.upper()}")
         
         log_file = self.result_dir / f"{model_type}_{dataset}_{strategy}.log"
@@ -51,11 +52,15 @@ class FederatedLearningRunner:
             return {"loss": "ERROR", "accuracy": "ERROR", "precision": "ERROR", 
                    "recall": "ERROR", "f1_score": "ERROR"}
     
-    def run_custom_federated_experiment(self, model_type: str, dataset: str, strategy: str, rounds: int, log_file: Path) -> Dict[str, str]:
-        """Run federated learning experiment using our custom implementation with aggregation strategies."""
+    def run_custom_federated_experiment(self, model_type, dataset, strategy, rounds, log_file):
+        
+        """
+        Run federated learning experiment using our custom implementation with aggregation strategies
+        """
         
         # Import our federated learning modules
         sys.path.append('.')
+
 
         from fed_learning.task import (
             set_dataset, set_model_type, load_data, 
@@ -64,6 +69,7 @@ class FederatedLearningRunner:
         from fed_learning.aggregation_strategies import get_strategy
         import numpy as np
         
+
         # Handle Random Forest separately
         if model_type == "random_forest":
             return self.run_random_forest_experiment(dataset, strategy, rounds, log_file)
@@ -86,8 +92,7 @@ class FederatedLearningRunner:
         strategy_params = {}
         if strategy == "fedprox":
             strategy_params = {"mu": 0.01}
-        elif strategy == "fedlag":
-            strategy_params = {"eta": 0.01, "momentum": 0.9}
+    
         
         # Create aggregation strategy
         try:
@@ -179,6 +184,7 @@ class FederatedLearningRunner:
                     try:
                         if hasattr(local_model, 'predict_proba'):
                             y_pred_proba = local_model.predict_proba(X_test)
+
                             # Compute log loss
                             from sklearn.metrics import log_loss
                             local_loss = log_loss(y_test, y_pred_proba)
@@ -223,7 +229,9 @@ class FederatedLearningRunner:
                             global_loss = 1.0 - global_accuracy
                     
                     except Exception as e:
+
                         print(f"Aggregation failed: {e}")
+
                         # Fallback to simple averaging
                         total_weight = sum(client_weights)
                         aggregated_params = []
@@ -262,6 +270,7 @@ class FederatedLearningRunner:
                     precision = precision_score(y_test_all, y_pred, average=avg_method, zero_division=0)
                     recall = recall_score(y_test_all, y_pred, average=avg_method, zero_division=0)
                     f1 = f1_score(y_test_all, y_pred, average=avg_method, zero_division=0)
+
                 except:
                     precision = global_accuracy  # Fallback
                     recall = global_accuracy
@@ -484,7 +493,7 @@ class FederatedLearningRunner:
         datasets = ["iris", "adult"]
         
         # Different strategies to test
-        strategies = ["fedavg", "fedprox", "fedmedian", "fedlag"]
+        strategies = ["fedavg", "fedprox", "fedmedian"]
         
         rounds = 5
         
@@ -501,11 +510,6 @@ class FederatedLearningRunner:
             for dataset in datasets:
                 for strategy in strategies:
                     current_experiment += 1
-                    
-                    # Only skip FedLAG for SVM and Random Forest (too complex for these models)
-                    if model in ["svm", "random_forest"] and strategy == "fedlag":
-                        print(f"Skipping {strategy.upper()} for {model.upper()} (gradient tracking not compatible)")
-                        continue
                     
                     try:
                         print(f"\n{'='*70}")
@@ -532,11 +536,9 @@ class FederatedLearningRunner:
         # Display final results
         self.display_results()
         
-        # Create comprehensive visualizations
-        self.create_comprehensive_plots()
     
     def display_results(self):
-        """Display the final results table with strategy breakdown."""
+
         try:
             df = pd.read_csv(self.csv_file)
             print("\nFINAL RESULTS:")
@@ -565,29 +567,10 @@ class FederatedLearningRunner:
             
         except Exception as e:
             print(f"Error displaying results: {e}")
-    
-    def create_comprehensive_plots(self):
-        """Create comprehensive visualization plots for strategy comparison."""
-        try:
-            import matplotlib.pyplot as plt
-            import seaborn as sns
-            import numpy as np
-            
-            print("\nCreating comprehensive visualization plots...")
-            print("Plots saved in: {self.result_dir}")
-            
-        except ImportError:
-            print("matplotlib or seaborn not available. Please install: pip install matplotlib seaborn")
-        except Exception as e:
-            print(f"Error creating plots: {e}")
 
 
 def main():
-    """Main function to run all experiments."""
-    print("Federated Learning Experiment Runner with Multiple Strategies")
-    print("Supporting: Logistic Regression, Random Forest, and SVM")
-    print("Datasets: Iris and Adult")
-    print("Strategies: FedAvg, FedProx, FedMedian")
+
     print("\n" + "="*80)
     
     print("\nStarting experiments with multiple aggregation strategies...\n")

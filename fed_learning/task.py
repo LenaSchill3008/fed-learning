@@ -1,4 +1,3 @@
-# task.py
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
@@ -16,15 +15,11 @@ MODEL_TYPE = "logistic"
 CSV_PATHS = {
     "iris":  "data/iris.csv",
     "adult": "data/adult.csv",
-    "breast_cancer": "data/breast_cancer.csv",
-    "wine_quality": "data/wine_quality.csv",
 }
 
 LABEL_COLUMNS = {
     "iris":  "Species",
     "adult": "income",
-    "breast_cancer": "target",
-    "wine_quality": "quality_binary",
 }
 
 # helper so server/client can switch dataset
@@ -57,6 +52,7 @@ def _ensure_dataset_loaded() -> None:
     X_final, y_final = shuffle(X_scaled.astype(np.float32), y, random_state=42)
     _dataset_cache[DATASET_NAME] = (X_final, y_final)
 
+
 def load_data(partition_id: int, num_partitions: int) -> Tuple[np.ndarray, ...]:
     """Return stratified train/test split for the given client partition (IID)."""
     _ensure_dataset_loaded()
@@ -79,12 +75,14 @@ def load_data(partition_id: int, num_partitions: int) -> Tuple[np.ndarray, ...]:
 
     return X_train, X_test, y_train, y_test
 
+
 def get_model(model_type: str = None, penalty: str = "l2", local_epochs: int = 100, **kwargs) -> Union[LogisticRegression, SVC]:
     """Get model based on type (logistic or svm)."""
     if model_type is None:
         model_type = MODEL_TYPE
     
     if model_type == "logistic":
+
         return LogisticRegression(
             penalty=penalty,
             max_iter=max(local_epochs, 200),  # Ensure enough iterations
@@ -93,8 +91,10 @@ def get_model(model_type: str = None, penalty: str = "l2", local_epochs: int = 1
             solver="lbfgs",
             random_state=42
         )
+    
     elif model_type == "svm":
         # For SVM, we use probability=True to get probability estimates
+
         return SVC(
             kernel=kwargs.get("kernel", "rbf"),
             C=kwargs.get("C", 1.0),
@@ -107,12 +107,15 @@ def get_model(model_type: str = None, penalty: str = "l2", local_epochs: int = 1
         raise ValueError(f"Unknown model type: {model_type}")
 
 def get_model_params(model) -> list:
-    """Extract parameters from model."""
+
     if isinstance(model, LogisticRegression):
         return [model.coef_, model.intercept_] if model.fit_intercept else [model.coef_]
+    
     elif isinstance(model, SVC):
         # For SVM, we extract support vectors, dual coefficients, and intercept
+
         if hasattr(model, 'support_vectors_'):
+
             return [
                 model.support_vectors_,
                 model.dual_coef_,
@@ -120,12 +123,14 @@ def get_model_params(model) -> list:
                 model.support_.astype(np.float32),  # indices of support vectors
                 model.n_support_.astype(np.float32)  # number of support vectors per class
             ]
+        
         else:
             # Model not trained yet, return dummy parameters
             _ensure_dataset_loaded()
             X_all, y_all = _dataset_cache[DATASET_NAME]
             n_features = X_all.shape[1]
             n_classes = len(np.unique(y_all))
+
             return [
                 np.zeros((1, n_features), dtype=np.float32),  # dummy support vectors
                 np.zeros((n_classes-1, 1), dtype=np.float32),  # dummy dual coef
@@ -136,9 +141,12 @@ def get_model_params(model) -> list:
     else:
         raise ValueError(f"Unknown model type: {type(model)}")
 
+
 def set_model_params(model, params):
-    """Set parameters to model."""
+
+    
     if isinstance(model, LogisticRegression):
+
         if len(params) >= 1:
             model.coef_ = params[0].copy()  # Use copy to ensure independence
         if model.fit_intercept and len(params) > 1:
@@ -156,11 +164,13 @@ def set_model_params(model, params):
         # In practice, you'd need more sophisticated approaches for SVM FL
         # For now, we'll skip parameter setting for SVM
         pass
+
     return model
 
+
 def set_initial_params(model):
-    """Initialise parameters so the server can send round-0 weights."""
-    _ensure_dataset_loaded()                     # guarantees cache is ready
+
+    _ensure_dataset_loaded()      
     X_all, y_all = _dataset_cache[DATASET_NAME]
 
     n_classes  = len(np.unique(y_all))
@@ -171,6 +181,7 @@ def set_initial_params(model):
         model.coef_    = np.zeros((n_classes, n_features), dtype=np.float32)
         if model.fit_intercept:
             model.intercept_ = np.zeros((n_classes,), dtype=np.float32)
+
     elif isinstance(model, SVC):
         # For SVM, we initialize dummy parameters
         model.classes_ = np.arange(n_classes)
@@ -178,7 +189,7 @@ def set_initial_params(model):
         # We'll let the model initialize itself during first training
         pass
 
-# Legacy functions for backward compatibility (without model_type parameter)
+
 def get_logistic_model(penalty: str, local_epochs: int) -> LogisticRegression:
-    """Legacy function for backward compatibility."""
+
     return get_model("logistic", penalty=penalty, local_epochs=local_epochs)

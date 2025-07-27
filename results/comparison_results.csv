@@ -3,12 +3,10 @@ logistic_regression,adult,,0.321904,0.851681,0.810907,0.759907,0.779925,centrali
 logistic_regression,adult,fedavg,0.318691,0.85139,0.731674,0.604655,0.662128,federated
 logistic_regression,adult,fedprox,0.318576,0.851428,0.731816,0.604655,0.662186,federated
 logistic_regression,adult,fedmedian,0.320278,0.850891,0.710782,0.642117,0.674707,federated
-logistic_regression,adult,fedlag,0.693147,0.759175,0.0,0.0,0.0,federated
 logistic_regression,iris,,0.076203,1.0,1.0,1.0,1.0,centralized
 logistic_regression,iris,fedavg,0.151492,0.991667,0.99187,0.991667,0.991665,federated
 logistic_regression,iris,fedprox,0.152309,0.991667,0.99187,0.991667,0.991665,federated
 logistic_regression,iris,fedmedian,0.148935,1.0,1.0,1.0,1.0,federated
-logistic_regression,iris,fedlag,1.015729,0.991667,0.99187,0.991667,0.991665,federated
 random_forest,adult,,0.173346,0.826654,0.822689,0.667426,0.697682,centralized
 random_forest,adult,fedavg,0.183172,0.816828,0.808043,0.647453,0.673647,federated
 random_forest,adult,fedprox,0.183172,0.816828,0.808043,0.647453,0.673647,federated
