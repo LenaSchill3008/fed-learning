@@ -1,3 +1,5 @@
-dataset,loss,accuracy
-iris,     		round 5,NA
-adult,     		round 5,NA
+model,dataset,loss,accuracy,precision,recall,f1_score
+logistic_regression,iris,0.266179611742586,1.0,1.0,1.0,1.0
+logistic_regression,adult,0.3281722080908864,0.846779,0.799927,0.759557,0.775545
+random_forest,iris,0.0666666666666666,0.933333,0.925,0.941667,0.922222
+random_forest,adult,0.16855828220858896,0.831442,0.822896,0.6812,0.711408

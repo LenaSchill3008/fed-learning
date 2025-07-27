@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "fed-learning"
 version = "1.0.0"
-description = "Federated Logistic Regression with Iris and Adult datasets"
+description = "Federated Learning with Logistic Regression and Random Forest"
 license = "Apache-2.0"
 dependencies = [
     "flwr[simulation]>=1.19.0",
@@ -20,14 +20,19 @@ packages = ["fed_learning"]
 publisher = "lenaschill"
 
 [tool.flwr.app.components]
-serverapp = "fed_learning.server_app:app"
+serverapp = "fed_learning.server_app:app"  # Default to logistic regression
 clientapp = "fed_learning.client_app:app"
 
 [tool.flwr.app.config]
 num-server-rounds = 3
 penalty = "l2"
 local-epochs = 5
-dataset = "iris"  # or "adult" (switch in CLI or here)
+dataset = "iris"  # or "adult"
+model-type = "logistic_regression"  # or "random_forest"
+
+# Random Forest specific configs
+n-estimators = 10
+max-depth = 5
 
 [tool.flwr.federations]
 default = "local-simulation"
