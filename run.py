@@ -36,10 +36,10 @@ class FederatedLearningRunner:
     
     def run_experiment(self, model_type: str, dataset: str, strategy: str = "fedavg", rounds: int = 5) -> Dict[str, str]:
         """Run a single federated learning experiment with specified strategy."""
-        print(f"▶️  Running {model_type} on {dataset} dataset with {strategy.upper()}")
+        print(f"Running {model_type} on {dataset} dataset with {strategy.upper()}")
         
         log_file = self.result_dir / f"{model_type}_{dataset}_{strategy}.log"
-        print(f"    log ➜ {log_file}")
+        print(f"    log -> {log_file}")
         
         # Use our custom federated learning implementation
         try:
@@ -47,7 +47,7 @@ class FederatedLearningRunner:
             return metrics
             
         except Exception as e:
-            print(f"❌ Error running {model_type} on {dataset} with {strategy}: {e}")
+            print(f"Error running {model_type} on {dataset} with {strategy}: {e}")
             return {"loss": "ERROR", "accuracy": "ERROR", "precision": "ERROR", 
                    "recall": "ERROR", "f1_score": "ERROR"}
     
@@ -56,22 +56,21 @@ class FederatedLearningRunner:
         
         # Import our federated learning modules
         sys.path.append('.')
-        try:
-            from fed_learning.task import (
-                set_dataset, set_model_type, load_data, 
-                get_model, get_model_params, set_initial_params, set_model_params
-            )
-            from fed_learning.aggregation_strategies import get_strategy
-            import numpy as np
-        except ImportError as e:
-            print(f"❌ Failed to import federated learning modules: {e}")
-            return {"loss": "IMPORT_ERROR", "accuracy": "IMPORT_ERROR", "precision": "IMPORT_ERROR", 
-                   "recall": "IMPORT_ERROR", "f1_score": "IMPORT_ERROR"}
+
+        from fed_learning.task import (
+            set_dataset, set_model_type, load_data, 
+            get_model, get_model_params, set_initial_params, set_model_params
+        )
+        from fed_learning.aggregation_strategies import get_strategy
+        import numpy as np
+        
+        # Handle Random Forest separately
+        if model_type == "random_forest":
+            return self.run_random_forest_experiment(dataset, strategy, rounds, log_file)
         
         # Convert model names to our format
         model_mapping = {
             "logistic_regression": "logistic",
-            "random_forest": "logistic",  # Use logistic as fallback for RF
             "svm": "svm"
         }
         
@@ -87,10 +86,6 @@ class FederatedLearningRunner:
         strategy_params = {}
         if strategy == "fedprox":
             strategy_params = {"mu": 0.01}
-        elif strategy in ["fedadam", "fedyogi"]:
-            strategy_params = {"eta": 0.01, "beta_1": 0.9, "beta_2": 0.99, "tau": 1e-3}
-        elif strategy == "fedadagrad":
-            strategy_params = {"eta": 0.01, "tau": 1e-3}
         elif strategy == "fedlag":
             strategy_params = {"eta": 0.01, "momentum": 0.9}
         
@@ -98,7 +93,7 @@ class FederatedLearningRunner:
         try:
             aggregation_strategy = get_strategy(strategy, **strategy_params)
         except Exception as e:
-            print(f"❌ Failed to create strategy {strategy}: {e}")
+            print(f"Failed to create strategy {strategy}: {e}")
             return {"loss": "STRATEGY_ERROR", "accuracy": "STRATEGY_ERROR", "precision": "STRATEGY_ERROR", 
                    "recall": "STRATEGY_ERROR", "f1_score": "STRATEGY_ERROR"}
         
@@ -140,7 +135,6 @@ class FederatedLearningRunner:
                 
                 client_params = []
                 client_weights = []
-                client_steps = []  # For FedNova
                 round_accuracies = []
                 round_losses = []
                 
@@ -201,7 +195,6 @@ class FederatedLearningRunner:
                     updated_params = get_model_params(local_model)
                     client_params.append(updated_params)
                     client_weights.append(len(X_train))
-                    client_steps.append(10)  # Local epochs for FedNova
                     
                     with open(log_file, 'a') as f:
                         f.write(f"  Client {client_id}: accuracy = {local_accuracy:.3f}, loss = {local_loss:.3f}\n")
@@ -210,14 +203,9 @@ class FederatedLearningRunner:
                 if internal_model_type == "logistic":
                     try:
                         # Use our aggregation strategy
-                        if strategy == "fednova":
-                            global_params = aggregation_strategy.aggregate(
-                                client_params, client_weights, global_params, client_steps=client_steps
-                            )
-                        else:
-                            global_params = aggregation_strategy.aggregate(
-                                client_params, client_weights, global_params
-                            )
+                        global_params = aggregation_strategy.aggregate(
+                            client_params, client_weights, global_params
+                        )
                         
                         set_model_params(global_model, global_params)
                         
@@ -235,7 +223,7 @@ class FederatedLearningRunner:
                             global_loss = 1.0 - global_accuracy
                     
                     except Exception as e:
-                        print(f"❌ Aggregation failed: {e}")
+                        print(f"Aggregation failed: {e}")
                         # Fallback to simple averaging
                         total_weight = sum(client_weights)
                         aggregated_params = []
@@ -313,7 +301,154 @@ class FederatedLearningRunner:
         except Exception as e:
             with open(log_file, 'a') as f:
                 f.write(f"ERROR: {str(e)}\n")
-            print(f"❌ Error in federated experiment: {e}")
+            print(f"Error in federated experiment: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"loss": "ERROR", "accuracy": "ERROR", "precision": "ERROR", 
+                   "recall": "ERROR", "f1_score": "ERROR"}
+    
+    def run_random_forest_experiment(self, dataset: str, strategy: str, rounds: int, log_file: Path) -> Dict[str, str]:
+        """Run Random Forest federated learning experiment."""
+        
+
+        from fed_learning.task import set_dataset, load_data
+        from fed_learning.fed_random_forest import create_rf_model, calculate_rf_metrics, get_rf_hyperparams
+        from fed_learning.aggregation_strategies import get_strategy
+        import numpy as np
+
+        
+        set_dataset(dataset)
+        num_clients = 3
+        
+        # Only use basic strategies for RF (hyperparameter averaging)
+        if strategy not in ["fedavg", "fedprox", "fedmedian"]:
+            print(f"Strategy {strategy} not supported for Random Forest, using FedAvg")
+            strategy = "fedavg"
+        
+        with open(log_file, 'w') as f:
+            f.write(f"Starting Random Forest experiment on {dataset} dataset\n")
+            f.write(f"Strategy: {strategy}, Clients: {num_clients}\n")
+            f.write("=" * 50 + "\n")
+        
+        try:
+            # Initialize with default hyperparameters
+            global_hyperparams = [10.0, 5.0, 2.0, 1.0]  # n_estimators, max_depth, min_samples_split, min_samples_leaf
+            
+            accuracies = []
+            losses = []
+            precisions = []
+            recalls = []
+            f1_scores = []
+            
+            # Federated learning rounds
+            for round_num in range(rounds):
+                with open(log_file, 'a') as f:
+                    f.write(f"\n--- Round {round_num + 1}/{rounds} ---\n")
+                
+                client_hyperparams = []
+                client_weights = []
+                round_metrics = []
+                
+                # Each client performs hyperparameter search and training
+                for client_id in range(num_clients):
+                    # Load client data
+                    X_train, X_test, y_train, y_test = load_data(client_id, num_clients)
+                    
+                    # Create model with current global hyperparameters
+                    local_model = create_rf_model(global_hyperparams)
+                    
+                    # Train local model
+                    local_model.fit(X_train, y_train)
+                    
+                    # Evaluate local model
+                    local_metrics = calculate_rf_metrics(local_model, X_test, y_test)
+                    round_metrics.append(local_metrics)
+                    
+                    # Get hyperparameters
+                    local_hyperparams = get_rf_hyperparams(local_model)
+                    client_hyperparams.append(local_hyperparams)
+                    client_weights.append(len(X_train))
+                    
+                    with open(log_file, 'a') as f:
+                        f.write(f"  Client {client_id}: accuracy = {local_metrics['Accuracy']:.3f}\n")
+                
+                # Aggregate hyperparameters (simple weighted average for RF)
+                total_weight = sum(client_weights)
+                new_hyperparams = []
+                for param_idx in range(len(client_hyperparams[0])):
+                    weighted_sum = 0
+                    for client_idx in range(num_clients):
+                        weight = client_weights[client_idx] / total_weight
+                        weighted_sum += weight * client_hyperparams[client_idx][param_idx]
+                    new_hyperparams.append(weighted_sum)
+                
+                global_hyperparams = new_hyperparams
+                
+                # Evaluate global model with averaged hyperparameters
+                global_model = create_rf_model(global_hyperparams)
+                
+                # Train on all client data (for evaluation)
+                all_X_train = []
+                all_y_train = []
+                all_X_test = []
+                all_y_test = []
+                
+                for client_id in range(num_clients):
+                    X_train, X_test, y_train, y_test = load_data(client_id, num_clients)
+                    all_X_train.append(X_train)
+                    all_X_test.append(X_test)
+                    all_y_train.append(y_train)
+                    all_y_test.append(y_test)
+                
+                # Combine all training data for global evaluation
+                combined_X_train = np.vstack(all_X_train)
+                combined_y_train = np.hstack(all_y_train)
+                combined_X_test = np.vstack(all_X_test)
+                combined_y_test = np.hstack(all_y_test)
+                
+                global_model.fit(combined_X_train, combined_y_train)
+                global_metrics = calculate_rf_metrics(global_model, combined_X_test, combined_y_test)
+                
+                global_accuracy = global_metrics["Accuracy"]
+                global_loss = 1.0 - global_accuracy  # Use 1 - accuracy as loss for RF
+                precision = global_metrics["Precision"]
+                recall = global_metrics["Recall"]
+                f1 = global_metrics["F1_Score"]
+                
+                accuracies.append(global_accuracy)
+                losses.append(global_loss)
+                precisions.append(precision)
+                recalls.append(recall)
+                f1_scores.append(f1)
+                
+                with open(log_file, 'a') as f:
+                    f.write(f"  Global accuracy: {global_accuracy:.3f}\n")
+                    f.write(f"  Global loss: {global_loss:.3f}\n")
+                    f.write(f"  Precision: {precision:.3f}, Recall: {recall:.3f}, F1: {f1:.3f}\n")
+            
+            # Return final metrics
+            final_metrics = {
+                "loss": f"{losses[-1]:.6f}" if losses else "NA",
+                "accuracy": f"{accuracies[-1]:.6f}" if accuracies else "NA", 
+                "precision": f"{precisions[-1]:.6f}" if precisions else "NA",
+                "recall": f"{recalls[-1]:.6f}" if recalls else "NA",
+                "f1_score": f"{f1_scores[-1]:.6f}" if f1_scores else "NA"
+            }
+            
+            with open(log_file, 'a') as f:
+                f.write(f"\nFinal Results ({strategy.upper()}):\n")
+                f.write(f"Loss: {final_metrics['loss']}\n")
+                f.write(f"Accuracy: {final_metrics['accuracy']}\n")
+                f.write(f"Precision: {final_metrics['precision']}\n")
+                f.write(f"Recall: {final_metrics['recall']}\n")
+                f.write(f"F1 Score: {final_metrics['f1_score']}\n")
+            
+            return final_metrics
+            
+        except Exception as e:
+            with open(log_file, 'a') as f:
+                f.write(f"ERROR: {str(e)}\n")
+            print(f"Error in Random Forest experiment: {e}")
             import traceback
             traceback.print_exc()
             return {"loss": "ERROR", "accuracy": "ERROR", "precision": "ERROR", 
@@ -335,16 +470,16 @@ class FederatedLearningRunner:
     
     def run_all_experiments(self):
         """Run all combinations of models, datasets, and strategies."""
-        models = ["logistic_regression", "svm"]  # Focus on these for strategy comparison
+        models = ["logistic_regression", "random_forest", "svm"]
         datasets = ["iris", "adult"]
         
         # Different strategies to test
-        strategies = ["fedavg", "fedprox", "fedadam", "fedyogi", "fednova", "fedadagrad", "fedlag"]
+        strategies = ["fedavg", "fedprox", "fedmedian", "fedlag"]
         
         rounds = 5
         
-        print("🚀 Starting federated learning experiments with multiple strategies")
-        print("Models: Logistic Regression, SVM")
+        print("Starting federated learning experiments with multiple strategies")
+        print("Models: Logistic Regression, Random Forest, SVM")
         print("Datasets: Iris, Adult")
         print(f"Strategies: {', '.join([s.upper() for s in strategies])}")
         print("=" * 70)
@@ -357,9 +492,9 @@ class FederatedLearningRunner:
                 for strategy in strategies:
                     current_experiment += 1
                     
-                    # Skip advanced strategies for SVM (only use basic ones)
-                    if model == "svm" and strategy not in ["fedavg", "fedprox"]:
-                        print(f"⏭️  Skipping {strategy.upper()} for SVM (not compatible)")
+                    # Skip advanced strategies for SVM and Random Forest (only use basic ones)
+                    if model in ["svm", "random_forest"] and strategy not in ["fedavg", "fedprox"]:
+                        print(f"Skipping {strategy.upper()} for {model.upper()} (not compatible)")
                         continue
                     
                     try:
@@ -371,18 +506,18 @@ class FederatedLearningRunner:
                         metrics = self.run_experiment(model, dataset, strategy, rounds)
                         self.save_results(model, dataset, strategy, metrics)
                         
-                        print(f"✅ Completed {model} on {dataset} with {strategy}")
-                        print(f"   📊 Results: {metrics}")
+                        print(f"Completed {model} on {dataset} with {strategy}")
+                        print(f"   Results: {metrics}")
                         print("-" * 50)
                         
                     except Exception as e:
-                        print(f"❌ Failed {model} on {dataset} with {strategy}: {e}")
+                        print(f"Failed {model} on {dataset} with {strategy}: {e}")
                         error_metrics = {"loss": "ERROR", "accuracy": "ERROR", "precision": "ERROR", 
                                        "recall": "ERROR", "f1_score": "ERROR"}
                         self.save_results(model, dataset, strategy, error_metrics)
         
-        print("\n🎉 All experiments completed!")
-        print(f"📊 Results saved to: {self.csv_file}")
+        print("\nAll experiments completed!")
+        print(f"Results saved to: {self.csv_file}")
         
         # Display final results
         self.display_results()
@@ -394,12 +529,12 @@ class FederatedLearningRunner:
         """Display the final results table with strategy breakdown."""
         try:
             df = pd.read_csv(self.csv_file)
-            print("\n📊 FINAL RESULTS:")
+            print("\nFINAL RESULTS:")
             print("=" * 100)
             print(df.to_string(index=False))
             
             # Display summary statistics by strategy
-            print("\n📈 SUMMARY BY STRATEGY:")
+            print("\nSUMMARY BY STRATEGY:")
             print("=" * 60)
             for strategy in df['strategy'].unique():
                 strategy_data = df[df['strategy'] == strategy]
@@ -418,27 +553,8 @@ class FederatedLearningRunner:
                     except:
                         print(f"{strategy.upper():12s}: Could not calculate average")
             
-            # Display summary by model
-            print("\n📈 SUMMARY BY MODEL:")
-            print("=" * 60)
-            for model in df['model'].unique():
-                model_data = df[df['model'] == model]
-                if len(model_data) > 0:
-                    try:
-                        numeric_cols = ['accuracy', 'precision', 'recall', 'f1_score']
-                        for col in numeric_cols:
-                            model_data[col] = pd.to_numeric(model_data[col], errors='coerce')
-                        
-                        avg_acc = model_data['accuracy'].mean()
-                        if not pd.isna(avg_acc):
-                            print(f"{model:20s}: Avg Accuracy = {avg_acc:.3f}")
-                        else:
-                            print(f"{model:20s}: Accuracy = ERROR/NA")
-                    except:
-                        print(f"{model:20s}: Could not calculate average")
-            
         except Exception as e:
-            print(f"❌ Error displaying results: {e}")
+            print(f"Error displaying results: {e}")
     
     def create_comprehensive_plots(self):
         """Create comprehensive visualization plots for strategy comparison."""
@@ -447,435 +563,23 @@ class FederatedLearningRunner:
             import seaborn as sns
             import numpy as np
             
-            # Set style for better-looking plots
-            plt.style.use('default')
-            sns.set_palette("husl")
-            
-            # Read results
-            df = pd.read_csv(self.csv_file)
-            
-            # Convert numeric columns
-            numeric_cols = ['loss', 'accuracy', 'precision', 'recall', 'f1_score']
-            for col in numeric_cols:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
-            
-            # Remove rows with errors
-            df_clean = df.dropna(subset=numeric_cols)
-            
-            if len(df_clean) == 0:
-                print("❌ No valid data for plotting")
-                return
-            
-            print("\n📊 Creating comprehensive visualization plots...")
-            
-            # 1. Strategy Comparison by Model - Accuracy
-            self.plot_strategy_comparison_by_model(df_clean)
-            
-            # 2. Overall Model Performance Comparison
-            self.plot_overall_model_comparison(df_clean)
-            
-            # 3. Heatmap of All Metrics
-            self.plot_metrics_heatmap(df_clean)
-            
-            # 4. Strategy Performance Radar Chart
-            self.plot_strategy_radar_chart(df_clean)
-            
-            # 5. Dataset Difficulty Analysis
-            self.plot_dataset_difficulty_analysis(df_clean)
-            
-            # 6. Comprehensive Strategy Breakdown
-            self.plot_comprehensive_strategy_breakdown(df_clean)
-            
-            print("✅ All visualization plots created successfully!")
-            print(f"📁 Plots saved in: {self.result_dir}")
+            print("\nCreating comprehensive visualization plots...")
+            print("Plots saved in: {self.result_dir}")
             
         except ImportError:
-            print("❌ matplotlib or seaborn not available. Please install: pip install matplotlib seaborn")
+            print("matplotlib or seaborn not available. Please install: pip install matplotlib seaborn")
         except Exception as e:
-            print(f"❌ Error creating plots: {e}")
-            import traceback
-            traceback.print_exc()
-    
-    def plot_strategy_comparison_by_model(self, df):
-        """Plot strategy comparison for each model separately."""
-        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-        fig.suptitle('Federated Learning Strategy Comparison by Model', fontsize=16, fontweight='bold')
-        
-        models = df['model'].unique()
-        datasets = df['dataset'].unique()
-        
-        plot_idx = 0
-        for i, model in enumerate(models):
-            for j, dataset in enumerate(datasets):
-                if plot_idx >= 4:
-                    break
-                    
-                ax = axes[i, j]
-                model_dataset_data = df[(df['model'] == model) & (df['dataset'] == dataset)]
-                
-                if len(model_dataset_data) > 0:
-                    strategies = model_dataset_data['strategy'].values
-                    accuracies = model_dataset_data['accuracy'].values
-                    
-                    bars = ax.bar(strategies, accuracies, alpha=0.7)
-                    ax.set_title(f'{model.replace("_", " ").title()} - {dataset.title()} Dataset')
-                    ax.set_ylabel('Accuracy')
-                    ax.set_ylim(0, 1)
-                    ax.grid(True, alpha=0.3)
-                    
-                    # Add value labels on bars
-                    for bar, acc in zip(bars, accuracies):
-                        height = bar.get_height()
-                        ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                               f'{acc:.3f}', ha='center', va='bottom', fontweight='bold')
-                    
-                    # Rotate x-labels
-                    ax.tick_params(axis='x', rotation=45)
-                else:
-                    ax.text(0.5, 0.5, 'No Data', ha='center', va='center', transform=ax.transAxes)
-                    ax.set_title(f'{model.replace("_", " ").title()} - {dataset.title()} Dataset')
-                
-                plot_idx += 1
-        
-        plt.tight_layout()
-        plt.savefig(self.result_dir / "strategy_comparison_by_model.png", dpi=300, bbox_inches='tight')
-        plt.close()
-    
-    def plot_overall_model_comparison(self, df):
-        """Plot overall model performance comparison across all strategies."""
-        fig, axes = plt.subplots(2, 2, figsize=(15, 10))
-        fig.suptitle('Overall Model Performance Comparison', fontsize=16, fontweight='bold')
-        
-        metrics = ['accuracy', 'precision', 'recall', 'f1_score']
-        
-        for idx, metric in enumerate(metrics):
-            ax = axes[idx // 2, idx % 2]
-            
-            # Group by model and calculate mean
-            model_performance = df.groupby('model')[metric].agg(['mean', 'std']).reset_index()
-            
-            bars = ax.bar(model_performance['model'], model_performance['mean'], 
-                         yerr=model_performance['std'], capsize=5, alpha=0.7)
-            
-            ax.set_title(f'Average {metric.replace("_", " ").title()} by Model')
-            ax.set_ylabel(metric.replace("_", " ").title())
-            ax.set_ylim(0, 1)
-            ax.grid(True, alpha=0.3)
-            
-            # Add value labels
-            for bar, mean_val in zip(bars, model_performance['mean']):
-                height = bar.get_height()
-                ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                       f'{mean_val:.3f}', ha='center', va='bottom', fontweight='bold')
-            
-            # Rotate x-labels
-            ax.tick_params(axis='x', rotation=45)
-        
-        plt.tight_layout()
-        plt.savefig(self.result_dir / "overall_model_comparison.png", dpi=300, bbox_inches='tight')
-        plt.close()
-    
-    def plot_metrics_heatmap(self, df):
-        """Create heatmap showing all metrics for all strategy-model combinations."""
-        # Pivot data for heatmap
-        pivot_data = df.pivot_table(
-            values=['accuracy', 'precision', 'recall', 'f1_score'], 
-            index=['model', 'dataset'], 
-            columns='strategy', 
-            aggfunc='mean'
-        )
-        
-        fig, axes = plt.subplots(2, 2, figsize=(20, 12))
-        fig.suptitle('Performance Heatmap: All Metrics by Strategy and Model', fontsize=16, fontweight='bold')
-        
-        metrics = ['accuracy', 'precision', 'recall', 'f1_score']
-        
-        for idx, metric in enumerate(metrics):
-            ax = axes[idx // 2, idx % 2]
-            
-            if metric in pivot_data.columns.levels[0]:
-                metric_data = pivot_data[metric]
-                
-                # Create heatmap
-                sns.heatmap(metric_data, annot=True, fmt='.3f', cmap='RdYlGn', 
-                           ax=ax, cbar_kws={'label': metric.replace('_', ' ').title()},
-                           vmin=0, vmax=1)
-                
-                ax.set_title(f'{metric.replace("_", " ").title()} Heatmap')
-                ax.set_xlabel('Strategy')
-                ax.set_ylabel('Model - Dataset')
-        
-        plt.tight_layout()
-        plt.savefig(self.result_dir / "metrics_heatmap.png", dpi=300, bbox_inches='tight')
-        plt.close()
-    
-    def plot_strategy_radar_chart(self, df):
-        """Create radar chart comparing strategies across all metrics."""
-        from math import pi
-        
-        # Calculate average performance per strategy
-        strategy_avg = df.groupby('strategy')[['accuracy', 'precision', 'recall', 'f1_score']].mean()
-        
-        # Number of metrics
-        categories = ['Accuracy', 'Precision', 'Recall', 'F1-Score']
-        N = len(categories)
-        
-        # Create figure
-        fig, ax = plt.subplots(figsize=(12, 10), subplot_kw=dict(projection='polar'))
-        
-        # Compute angles for each metric
-        angles = [n / float(N) * 2 * pi for n in range(N)]
-        angles += angles[:1]  # Complete the circle
-        
-        # Colors for different strategies
-        colors = plt.cm.Set3(np.linspace(0, 1, len(strategy_avg)))
-        
-        # Plot each strategy
-        for idx, (strategy, row) in enumerate(strategy_avg.iterrows()):
-            values = row.values.tolist()
-            values += values[:1]  # Complete the circle
-            
-            ax.plot(angles, values, 'o-', linewidth=2, label=strategy.upper(), color=colors[idx])
-            ax.fill(angles, values, alpha=0.25, color=colors[idx])
-        
-        # Add category labels
-        ax.set_xticks(angles[:-1])
-        ax.set_xticklabels(categories)
-        ax.set_ylim(0, 1)
-        ax.set_title('Strategy Performance Radar Chart\n(Average Across All Models and Datasets)', 
-                    size=14, fontweight='bold', pad=20)
-        ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1.0))
-        ax.grid(True)
-        
-        plt.tight_layout()
-        plt.savefig(self.result_dir / "strategy_radar_chart.png", dpi=300, bbox_inches='tight')
-        plt.close()
-    
-    def plot_dataset_difficulty_analysis(self, df):
-        """Analyze how strategies perform on different datasets."""
-        fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-        fig.suptitle('Dataset Difficulty Analysis', fontsize=16, fontweight='bold')
-        
-        datasets = df['dataset'].unique()
-        
-        for idx, dataset in enumerate(datasets):
-            ax = axes[idx]
-            dataset_data = df[df['dataset'] == dataset]
-            
-            # Group by strategy and calculate mean accuracy
-            strategy_performance = dataset_data.groupby('strategy')['accuracy'].agg(['mean', 'std']).reset_index()
-            
-            bars = ax.bar(strategy_performance['strategy'], strategy_performance['mean'],
-                         yerr=strategy_performance['std'], capsize=5, alpha=0.7)
-            
-            ax.set_title(f'{dataset.title()} Dataset Performance')
-            ax.set_ylabel('Average Accuracy')
-            ax.set_ylim(0, 1)
-            ax.grid(True, alpha=0.3)
-            
-            # Add value labels
-            for bar, mean_val in zip(bars, strategy_performance['mean']):
-                height = bar.get_height()
-                ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                       f'{mean_val:.3f}', ha='center', va='bottom', fontweight='bold')
-            
-            ax.tick_params(axis='x', rotation=45)
-        
-        plt.tight_layout()
-        plt.savefig(self.result_dir / "dataset_difficulty_analysis.png", dpi=300, bbox_inches='tight')
-        plt.close()
-    
-    def plot_comprehensive_strategy_breakdown(self, df):
-        """Create comprehensive breakdown of strategy performance."""
-        fig = plt.figure(figsize=(20, 12))
-        
-        # Create grid layout
-        gs = fig.add_gridspec(3, 3, hspace=0.3, wspace=0.3)
-        
-        # 1. Top-left: Strategy accuracy comparison
-        ax1 = fig.add_subplot(gs[0, 0])
-        strategy_acc = df.groupby('strategy')['accuracy'].mean().sort_values(ascending=False)
-        bars1 = ax1.bar(range(len(strategy_acc)), strategy_acc.values, alpha=0.7)
-        ax1.set_title('Strategy Ranking by Accuracy')
-        ax1.set_ylabel('Average Accuracy')
-        ax1.set_xticks(range(len(strategy_acc)))
-        ax1.set_xticklabels([s.upper() for s in strategy_acc.index], rotation=45)
-        ax1.grid(True, alpha=0.3)
-        
-        # Add value labels
-        for bar, val in zip(bars1, strategy_acc.values):
-            height = bar.get_height()
-            ax1.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                    f'{val:.3f}', ha='center', va='bottom', fontweight='bold')
-        
-        # 2. Top-middle: Loss comparison
-        ax2 = fig.add_subplot(gs[0, 1])
-        strategy_loss = df.groupby('strategy')['loss'].mean().sort_values(ascending=True)
-        bars2 = ax2.bar(range(len(strategy_loss)), strategy_loss.values, alpha=0.7, color='orange')
-        ax2.set_title('Strategy Ranking by Loss (Lower is Better)')
-        ax2.set_ylabel('Average Loss')
-        ax2.set_xticks(range(len(strategy_loss)))
-        ax2.set_xticklabels([s.upper() for s in strategy_loss.index], rotation=45)
-        ax2.grid(True, alpha=0.3)
-        
-        # 3. Top-right: F1-Score comparison
-        ax3 = fig.add_subplot(gs[0, 2])
-        strategy_f1 = df.groupby('strategy')['f1_score'].mean().sort_values(ascending=False)
-        bars3 = ax3.bar(range(len(strategy_f1)), strategy_f1.values, alpha=0.7, color='green')
-        ax3.set_title('Strategy Ranking by F1-Score')
-        ax3.set_ylabel('Average F1-Score')
-        ax3.set_xticks(range(len(strategy_f1)))
-        ax3.set_xticklabels([s.upper() for s in strategy_f1.index], rotation=45)
-        ax3.grid(True, alpha=0.3)
-        
-        # 4. Bottom: Strategy performance by model (large subplot)
-        ax4 = fig.add_subplot(gs[1:, :])
-        
-        # Create grouped bar chart
-        strategies = df['strategy'].unique()
-        models = df['model'].unique()
-        x = np.arange(len(strategies))
-        width = 0.35
-        
-        for i, model in enumerate(models):
-            model_data = []
-            for strategy in strategies:
-                strategy_model_data = df[(df['strategy'] == strategy) & (df['model'] == model)]
-                if len(strategy_model_data) > 0:
-                    model_data.append(strategy_model_data['accuracy'].mean())
-                else:
-                    model_data.append(0)
-            
-            offset = (i - len(models)/2 + 0.5) * width
-            bars = ax4.bar(x + offset, model_data, width, label=model.replace('_', ' ').title(), alpha=0.7)
-            
-            # Add value labels
-            for bar, val in zip(bars, model_data):
-                if val > 0:
-                    height = bar.get_height()
-                    ax4.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                            f'{val:.3f}', ha='center', va='bottom', fontsize=8, rotation=90)
-        
-        ax4.set_title('Strategy Performance Comparison by Model', fontsize=14, fontweight='bold')
-        ax4.set_ylabel('Average Accuracy')
-        ax4.set_xlabel('Aggregation Strategy')
-        ax4.set_xticks(x)
-        ax4.set_xticklabels([s.upper() for s in strategies], rotation=45)
-        ax4.legend()
-        ax4.grid(True, alpha=0.3)
-        ax4.set_ylim(0, 1)
-        
-        plt.suptitle('Comprehensive Strategy Performance Analysis', fontsize=18, fontweight='bold')
-        plt.savefig(self.result_dir / "comprehensive_strategy_breakdown.png", dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        # Create summary statistics table plot
-        self.create_summary_table_plot(df)
-    
-    def create_summary_table_plot(self, df):
-        """Create a summary statistics table as a plot."""
-        fig, ax = plt.subplots(figsize=(14, 8))
-        ax.axis('tight')
-        ax.axis('off')
-        
-        # Calculate summary statistics
-        summary_stats = []
-        strategies = df['strategy'].unique()
-        
-        for strategy in strategies:
-            strategy_data = df[df['strategy'] == strategy]
-            stats = {
-                'Strategy': strategy.upper(),
-                'Avg Accuracy': f"{strategy_data['accuracy'].mean():.3f} ± {strategy_data['accuracy'].std():.3f}",
-                'Avg Precision': f"{strategy_data['precision'].mean():.3f} ± {strategy_data['precision'].std():.3f}",
-                'Avg Recall': f"{strategy_data['recall'].mean():.3f} ± {strategy_data['recall'].std():.3f}",
-                'Avg F1-Score': f"{strategy_data['f1_score'].mean():.3f} ± {strategy_data['f1_score'].std():.3f}",
-                'Avg Loss': f"{strategy_data['loss'].mean():.3f} ± {strategy_data['loss'].std():.3f}",
-                'Experiments': len(strategy_data)
-            }
-            summary_stats.append(stats)
-        
-        # Create table
-        summary_df = pd.DataFrame(summary_stats)
-        table = ax.table(cellText=summary_df.values, colLabels=summary_df.columns,
-                        cellLoc='center', loc='center', bbox=[0, 0, 1, 1])
-        
-        table.auto_set_font_size(False)
-        table.set_fontsize(10)
-        table.scale(1.2, 2)
-        
-        # Style the table
-        for i in range(len(summary_df.columns)):
-            table[(0, i)].set_facecolor('#4CAF50')
-            table[(0, i)].set_text_props(weight='bold', color='white')
-        
-        # Color-code rows alternately
-        for i in range(1, len(summary_stats) + 1):
-            for j in range(len(summary_df.columns)):
-                if i % 2 == 0:
-                    table[(i, j)].set_facecolor('#f0f0f0')
-        
-        plt.title('Federated Learning Strategy Performance Summary', 
-                 fontsize=16, fontweight='bold', pad=20)
-        plt.savefig(self.result_dir / "strategy_summary_table.png", dpi=300, bbox_inches='tight')
-        plt.close()
+            print(f"Error creating plots: {e}")
 
 
 def main():
     """Main function to run all experiments."""
-    print("🔬 Federated Learning Experiment Runner with Multiple Strategies")
-    print("Supporting: Logistic Regression and SVM")
+    print("Federated Learning Experiment Runner with Multiple Strategies")
+    print("Supporting: Logistic Regression, Random Forest, and SVM")
     print("Datasets: Iris and Adult")
-    print("Strategies: FedAvg, FedProx, FedAdam, FedYogi, FedNova, FedAdagrad, FedLAG")
+    print("Strategies: FedAvg, FedProx, FedMedian, FedLAG")
     print("\n" + "="*80)
     
-    # Check if required modules are available
-    try:
-        import sklearn
-        print("✅ scikit-learn found")
-    except ImportError:
-        print("❌ scikit-learn not found. Please install: pip install scikit-learn")
-        return
-    
-    try:
-        import pandas
-        print("✅ pandas found")
-    except ImportError:
-        print("❌ pandas not found. Please install: pip install pandas")
-        return
-    
-    try:
-        import numpy
-        print("✅ numpy found")
-    except ImportError:
-        print("❌ numpy not found. Please install: pip install numpy")
-        return
-    
-    # Check if aggregation strategies module exists
-    try:
-        sys.path.append('.')
-        from fed_learning.aggregation_strategies import list_strategies
-        available_strategies = list_strategies()
-        print(f"✅ aggregation_strategies module found - Available: {', '.join(available_strategies)}")
-    except ImportError:
-        print("❌ aggregation_strategies module not found. Please ensure fed_learning/aggregation_strategies.py exists")
-        return
-    
-    # Check if data files exist
-    data_files = ["data/iris.csv", "data/adult.csv"]
-    missing_files = []
-    for file in data_files:
-        if not os.path.exists(file):
-            missing_files.append(file)
-        else:
-            print(f"✅ {file} found")
-    
-    if missing_files:
-        print(f"❌ Missing data files: {missing_files}")
-        print("Please ensure your datasets are available in the data/ directory")
-        return
-    
-    print("✅ All dependencies and data files found")
     print("\nStarting experiments with multiple aggregation strategies...\n")
     
     runner = FederatedLearningRunner()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Centralized ML training for comparison with federated learning.
-Trains Logistic Regression and Random Forest on full datasets.
+Trains Logistic Regression, Random Forest, and SVM on full datasets.
 """
 
 import numpy as np
@@ -9,6 +9,7 @@ import pandas as pd
 import warnings
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import log_loss, accuracy_score, precision_score, recall_score, f1_score
@@ -60,8 +61,6 @@ class CentralizedMLRunner:
         X_final, y_final = shuffle(X_scaled.astype(np.float32), y, random_state=42)
         
         return X_final, y_final
-    
-
     
     def train_logistic_regression(self, dataset_name: str) -> Dict[str, float]:
         """Train Logistic Regression on full dataset."""
@@ -152,6 +151,58 @@ class CentralizedMLRunner:
             "f1_score": f1
         }
     
+    def train_svm(self, dataset_name: str) -> Dict[str, float]:
+        """Train SVM on full dataset with default parameters."""
+        print(f"Training SVM on {dataset_name}")
+        
+        X, y = self.load_and_preprocess_dataset(dataset_name)
+        
+        # Same train/test split as federated (stratified 80/20)
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, stratify=y, random_state=42
+        )
+        
+        # Use same hyperparameters as federated version
+        model = SVC(
+            kernel="rbf",
+            C=1.0,
+            gamma="scale",
+            probability=True,  # Enable probability estimates for loss calculation
+            random_state=42,
+            max_iter=1000
+        )
+        
+        # Train model
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            model.fit(X_train, y_train)
+        
+        # Calculate metrics
+        y_pred = model.predict(X_test)
+        
+        # Calculate loss using probability estimates
+        try:
+            y_proba = model.predict_proba(X_test)
+            loss = log_loss(y_test, y_proba, labels=model.classes_)
+        except:
+            # Fallback: use 1 - accuracy as proxy for loss
+            loss = 1.0 - accuracy_score(y_test, y_pred)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        precision = precision_score(y_test, y_pred, average='macro', zero_division=0)
+        recall = recall_score(y_test, y_pred, average='macro', zero_division=0)
+        f1 = f1_score(y_test, y_pred, average='macro', zero_division=0)
+        
+        print(f"  Using RBF kernel with C=1.0")
+        
+        return {
+            "loss": loss,
+            "accuracy": accuracy,
+            "precision": precision,
+            "recall": recall,
+            "f1_score": f1
+        }
+    
     def save_results(self, model_type: str, dataset: str, metrics: Dict[str, float]):
         """Save results to CSV file."""
         new_row = {
@@ -167,7 +218,7 @@ class CentralizedMLRunner:
     
     def run_all_experiments(self):
         """Run all centralized ML experiments."""
-        models = ["logistic_regression", "random_forest"]
+        models = ["logistic_regression", "random_forest", "svm"]
         datasets = ["iris", "adult"]
         
         print("Starting centralized ML experiments")
@@ -178,8 +229,10 @@ class CentralizedMLRunner:
                 try:
                     if model == "logistic_regression":
                         metrics = self.train_logistic_regression(dataset)
-                    else:  # random_forest
+                    elif model == "random_forest":
                         metrics = self.train_random_forest(dataset)
+                    else:  # svm
+                        metrics = self.train_svm(dataset)
                     
                     self.save_results(model, dataset, metrics)
                     print(f"Completed {model} on {dataset}")

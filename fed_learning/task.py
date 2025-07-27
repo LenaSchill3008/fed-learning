@@ -98,7 +98,7 @@ def get_model(model_type: str = None, penalty: str = "l2", local_epochs: int = 1
     elif model_type == "svm":
         # For SVM, we use probability=True to get probability estimates
         return SVC(
-            kernel=kwargs.get("kernel", "rbf"),
+            kernel=kwargs.get("kernel", "linear"), #rbf
             C=kwargs.get("C", 1.0),
             gamma=kwargs.get("gamma", "scale"),
             probability=True,  # Enable probability estimates

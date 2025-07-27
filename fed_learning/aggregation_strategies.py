@@ -1,13 +1,11 @@
 """
-Federated Learning Aggregation Strategies - FIXED VERSION
+Federated Learning Aggregation Strategies - UPDATED VERSION
 
 This module implements various parameter aggregation strategies for federated learning,
-including FedAvg, FedProx, FedAdam, FedYogi, and more advanced techniques.
+including FedAvg, FedProx, FedMedian, and FedLAG.
 
-Fixes included:
-- Parameter clipping for adaptive methods to prevent divergence
-- Dataset-specific hyperparameters for better stability
-- Improved error handling and numerical stability
+Removed: FedAdam, FedYogi, FedAdagrad (replaced with FedMedian)
+Added: FedMedian for robust aggregation against outliers
 """
 
 import numpy as np
@@ -115,33 +113,18 @@ class FedProxStrategy(AggregationStrategy):
         return aggregated_params
 
 
-class FedAdamStrategy(AggregationStrategy):
+class FedMedianStrategy(AggregationStrategy):
     """
-    Federated Adam (FedAdam) Strategy
+    Federated Median (FedMedian) Strategy
     
-    Applies Adam optimizer at the server level for parameter aggregation.
-    Includes parameter clipping to prevent divergence on complex datasets.
-    Reference: Reddi et al., "Adaptive Federated Optimization", ICLR 2021
+    Uses coordinate-wise median for aggregation instead of weighted averaging.
+    More robust to outliers and Byzantine failures than FedAvg.
+    Reference: Yin et al., "Byzantine-Robust Distributed Learning: Towards Optimal Statistical Rates", ICML 2018
     """
     
-    def __init__(self, 
-                 eta: float = 0.01,
-                 beta_1: float = 0.9, 
-                 beta_2: float = 0.99,
-                 tau: float = 1e-3,
-                 clip_norm: float = 1.0,
-                 **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.eta = eta          # Server learning rate
-        self.beta_1 = beta_1    # First moment decay
-        self.beta_2 = beta_2    # Second moment decay  
-        self.tau = tau          # Small constant for numerical stability
-        self.clip_norm = clip_norm  # Gradient clipping threshold
-        self.name = "FedAdam"
-        
-        # Adam state variables (initialized when first called)
-        self.m_t = None  # First moment estimates
-        self.v_t = None  # Second moment estimates
+        self.name = "FedMedian"
     
     def aggregate(self, 
                  client_params: List[List[np.ndarray]], 
@@ -149,211 +132,30 @@ class FedAdamStrategy(AggregationStrategy):
                  global_params: List[np.ndarray],
                  **kwargs) -> List[np.ndarray]:
         
-        # Step 1: Compute weighted average (pseudo-gradient)
-        total_weight = sum(client_weights)
         num_params = len(client_params[0])
+        num_clients = len(client_params)
         
-        # Initialize Adam state if first round
-        if self.m_t is None:
-            self.m_t = [np.zeros_like(param) for param in global_params]
-            self.v_t = [np.full_like(param, self.tau) for param in global_params]
-        
-        # Compute weighted average of client parameters
-        averaged_params = []
+        # For each parameter, compute coordinate-wise median
+        aggregated_params = []
         for param_idx in range(num_params):
-            weighted_sum = np.zeros_like(client_params[0][param_idx])
+            # Stack all client parameters for this parameter index
+            param_shape = client_params[0][param_idx].shape
+            param_stack = np.zeros((num_clients,) + param_shape)
+            
             for client_idx, params in enumerate(client_params):
-                weight = client_weights[client_idx] / total_weight
-                weighted_sum += weight * params[param_idx]
-            averaged_params.append(weighted_sum)
-        
-        # Step 2: Compute pseudo-gradient (server drift)
-        pseudo_gradients = []
-        for param_idx in range(num_params):
-            pseudo_grad = averaged_params[param_idx] - global_params[param_idx]
-            pseudo_gradients.append(pseudo_grad)
-        
-        # Step 3: Apply Adam updates with clipping
-        new_params = []
-        for i, pseudo_grad in enumerate(pseudo_gradients):
-            # Update biased first moment estimate
-            self.m_t[i] = self.beta_1 * self.m_t[i] + (1 - self.beta_1) * pseudo_grad
+                param_stack[client_idx] = params[param_idx]
             
-            # Update biased second moment estimate
-            self.v_t[i] = self.beta_2 * self.v_t[i] + (1 - self.beta_2) * np.square(pseudo_grad)
-            
-            # Bias correction
-            m_hat = self.m_t[i] / (1 - self.beta_1 ** (self.round_num + 1))
-            v_hat = self.v_t[i] / (1 - self.beta_2 ** (self.round_num + 1))
-            
-            # Parameter update with clipping
-            update = self.eta * m_hat / (np.sqrt(v_hat) + self.tau)
-            
-            # Clip large updates to prevent divergence
-            update_norm = np.linalg.norm(update)
-            if update_norm > self.clip_norm:
-                update = update * (self.clip_norm / update_norm)
-            
-            new_param = global_params[i] + update
-            new_params.append(new_param)
+            # Compute coordinate-wise median along the client axis (axis=0)
+            median_param = np.median(param_stack, axis=0)
+            aggregated_params.append(median_param)
         
         self.update_round()
-        return new_params
-
-
-class FedYogiStrategy(AggregationStrategy):
-    """
-    Federated Yogi (FedYogi) Strategy - FIXED VERSION
-    
-    Applies Yogi optimizer at the server level. Similar to FedAdam but with
-    different second moment update rule. Includes parameter clipping.
-    Reference: Reddi et al., "Adaptive Federated Optimization", ICLR 2021
-    """
-    
-    def __init__(self, 
-                 eta: float = 0.01,
-                 beta_1: float = 0.9, 
-                 beta_2: float = 0.99,
-                 tau: float = 1e-3,
-                 clip_norm: float = 1.0,
-                 **kwargs):
-        super().__init__(**kwargs)
-        self.eta = eta
-        self.beta_1 = beta_1
-        self.beta_2 = beta_2
-        self.tau = tau
-        self.clip_norm = clip_norm
-        self.name = "FedYogi"
-        
-        # Yogi state variables
-        self.m_t = None
-        self.v_t = None
-    
-    def aggregate(self, 
-                 client_params: List[List[np.ndarray]], 
-                 client_weights: List[float], 
-                 global_params: List[np.ndarray],
-                 **kwargs) -> List[np.ndarray]:
-        
-        # Step 1: Compute weighted average
-        total_weight = sum(client_weights)
-        num_params = len(client_params[0])
-        
-        # Initialize Yogi state if first round
-        if self.m_t is None:
-            self.m_t = [np.zeros_like(param) for param in global_params]
-            self.v_t = [np.full_like(param, self.tau) for param in global_params]
-        
-        # Compute weighted average of client parameters
-        averaged_params = []
-        for param_idx in range(num_params):
-            weighted_sum = np.zeros_like(client_params[0][param_idx])
-            for client_idx, params in enumerate(client_params):
-                weight = client_weights[client_idx] / total_weight
-                weighted_sum += weight * params[param_idx]
-            averaged_params.append(weighted_sum)
-        
-        # Step 2: Compute pseudo-gradient
-        pseudo_gradients = []
-        for param_idx in range(num_params):
-            pseudo_grad = averaged_params[param_idx] - global_params[param_idx]
-            pseudo_gradients.append(pseudo_grad)
-        
-        # Step 3: Apply Yogi updates with clipping
-        new_params = []
-        for i, pseudo_grad in enumerate(pseudo_gradients):
-            # Update biased first moment estimate
-            self.m_t[i] = self.beta_1 * self.m_t[i] + (1 - self.beta_1) * pseudo_grad
-            
-            # Yogi-specific second moment update
-            self.v_t[i] = self.v_t[i] - (1 - self.beta_2) * np.square(pseudo_grad) * np.sign(
-                self.v_t[i] - np.square(pseudo_grad)
-            )
-            
-            # Ensure v_t stays positive
-            self.v_t[i] = np.maximum(self.v_t[i], self.tau)
-            
-            # Parameter update with clipping
-            update = self.eta * self.m_t[i] / np.sqrt(self.v_t[i])
-            
-            # Clip large updates to prevent divergence
-            update_norm = np.linalg.norm(update)
-            if update_norm > self.clip_norm:
-                update = update * (self.clip_norm / update_norm)
-            
-            new_param = global_params[i] + update
-            new_params.append(new_param)
-        
-        self.update_round()
-        return new_params
-
-
-class FedAdagradStrategy(AggregationStrategy):
-    """
-    Federated Adagrad Strategy - IMPROVED VERSION
-    
-    Applies Adagrad optimizer at the server level for parameter aggregation.
-    Includes parameter clipping to prevent divergence.
-    """
-    
-    def __init__(self, eta: float = 0.01, tau: float = 1e-3, clip_norm: float = 1.0, **kwargs):
-        super().__init__(**kwargs)
-        self.eta = eta
-        self.tau = tau
-        self.clip_norm = clip_norm
-        self.name = "FedAdagrad"
-        
-        # Adagrad state
-        self.G_t = None  # Accumulated squared gradients
-    
-    def aggregate(self, 
-                 client_params: List[List[np.ndarray]], 
-                 client_weights: List[float], 
-                 global_params: List[np.ndarray],
-                 **kwargs) -> List[np.ndarray]:
-        
-        # Initialize Adagrad state if first round
-        if self.G_t is None:
-            self.G_t = [np.zeros_like(param) for param in global_params]
-        
-        # Step 1: Compute weighted average
-        total_weight = sum(client_weights)
-        num_params = len(client_params[0])
-        
-        averaged_params = []
-        for param_idx in range(num_params):
-            weighted_sum = np.zeros_like(client_params[0][param_idx])
-            for client_idx, params in enumerate(client_params):
-                weight = client_weights[client_idx] / total_weight
-                weighted_sum += weight * params[param_idx]
-            averaged_params.append(weighted_sum)
-        
-        # Step 2: Compute pseudo-gradient and apply Adagrad with clipping
-        new_params = []
-        for i in range(num_params):
-            pseudo_grad = averaged_params[i] - global_params[i]
-            
-            # Accumulate squared gradients
-            self.G_t[i] += np.square(pseudo_grad)
-            
-            # Adagrad update with clipping
-            update = self.eta * pseudo_grad / (np.sqrt(self.G_t[i]) + self.tau)
-            
-            # Clip large updates to prevent divergence
-            update_norm = np.linalg.norm(update)
-            if update_norm > self.clip_norm:
-                update = update * (self.clip_norm / update_norm)
-            
-            new_param = global_params[i] + update
-            new_params.append(new_param)
-        
-        self.update_round()
-        return new_params
+        return aggregated_params
 
 
 class FedLAGStrategy(AggregationStrategy):
     """
-    Federated Learning with Gradient Tracking (FedLAG) Strategy - IMPROVED VERSION
+    Federated Learning with Gradient Tracking (FedLAG) Strategy
     
     Maintains a running estimate of the global gradient to correct for client drift.
     Includes parameter clipping for stability.
@@ -429,9 +231,7 @@ class FedLAGStrategy(AggregationStrategy):
 AGGREGATION_STRATEGIES = {
     'fedavg': FedAvgStrategy,
     'fedprox': FedProxStrategy,
-    'fedadam': FedAdamStrategy,
-    'fedyogi': FedYogiStrategy,
-    'fedadagrad': FedAdagradStrategy,
+    'fedmedian': FedMedianStrategy,
     'fedlag': FedLAGStrategy,
 }
 
@@ -452,18 +252,14 @@ def get_strategy_params_for_dataset(strategy_name: str, dataset: str) -> dict:
         # More conservative parameters for complex datasets
         strategy_params = {
             "fedprox": {"mu": 0.001},  # Much smaller regularization
-            "fedadam": {"eta": 0.001, "beta_1": 0.9, "beta_2": 0.999, "tau": 1e-4, "clip_norm": 0.5},
-            "fedyogi": {"eta": 0.001, "beta_1": 0.9, "beta_2": 0.999, "tau": 1e-4, "clip_norm": 0.5},
-            "fedadagrad": {"eta": 0.001, "tau": 1e-4, "clip_norm": 0.5},
+            "fedmedian": {},  # No specific parameters for FedMedian
             "fedlag": {"eta": 0.001, "momentum": 0.5, "clip_norm": 0.5}
         }
     else:
         # Standard parameters for simpler datasets like Iris
         strategy_params = {
             "fedprox": {"mu": 0.01},
-            "fedadam": {"eta": 0.01, "beta_1": 0.9, "beta_2": 0.99, "tau": 1e-3, "clip_norm": 1.0},
-            "fedyogi": {"eta": 0.01, "beta_1": 0.9, "beta_2": 0.99, "tau": 1e-3, "clip_norm": 1.0},
-            "fedadagrad": {"eta": 0.01, "tau": 1e-3, "clip_norm": 1.0},
+            "fedmedian": {},  # No specific parameters for FedMedian
             "fedlag": {"eta": 0.01, "momentum": 0.9, "clip_norm": 1.0}
         }
     
@@ -519,11 +315,11 @@ if __name__ == "__main__":
     client_weights = [100, 150, 200]  # Data sizes
     global_params = [np.zeros((5, 3)), np.zeros(3)]  # Initial global parameters
     
-    print("Testing Fixed Aggregation Strategies")
+    print("Testing Aggregation Strategies")
     print("=" * 40)
     
     for strategy_name in list_strategies():
-        print(f"\n🔄 Testing {strategy_name.upper()}")
+        print(f"\nTesting {strategy_name.upper()}")
         
         try:
             # Test with dataset-specific parameters
@@ -532,8 +328,7 @@ if __name__ == "__main__":
             
             # Print some basic stats
             param_norms = [np.linalg.norm(param) for param in result]
-            print(f"   ✅ Success - Parameter norms: {[f'{norm:.3f}' for norm in param_norms]}")
+            print(f"   Success - Parameter norms: {[f'{norm:.3f}' for norm in param_norms]}")
             
         except Exception as e:
-            print(f"   ❌ Error: {e}")
-    
+            print(f"   Error: {e}")
