@@ -2,10 +2,9 @@
 Federated Learning Aggregation Strategies - FIXED VERSION
 
 This module implements various parameter aggregation strategies for federated learning,
-including FedAvg, FedProx, FedAdam, FedYogi, FedNova, and more advanced techniques.
+including FedAvg, FedProx, FedAdam, FedYogi, and more advanced techniques.
 
 Fixes included:
-- FedNova broadcasting shape mismatch
 - Parameter clipping for adaptive methods to prevent divergence
 - Dataset-specific hyperparameters for better stability
 - Improved error handling and numerical stability
@@ -289,86 +288,6 @@ class FedYogiStrategy(AggregationStrategy):
         return new_params
 
 
-class FedNovaStrategy(AggregationStrategy):
-    """
-    Federated Nova (FedNova) Strategy - FIXED VERSION
-    
-    Addresses the objective inconsistency issue in heterogeneous federated learning
-    by normalizing local updates based on the number of local steps.
-    Fixed broadcasting issues for different parameter shapes.
-    Reference: Wang et al., "Tackling the Objective Inconsistency Problem in 
-    Heterogeneous Federated Optimization", NeurIPS 2020
-    """
-    
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.name = "FedNova"
-    
-    def aggregate(self, 
-                 client_params: List[List[np.ndarray]], 
-                 client_weights: List[float], 
-                 global_params: List[np.ndarray],
-                 client_steps: Optional[List[int]] = None,
-                 **kwargs) -> List[np.ndarray]:
-        
-        if client_steps is None:
-            # Fallback to FedAvg if step counts not provided
-            logger.warning("Client steps not provided for FedNova, falling back to FedAvg")
-            client_steps = [1] * len(client_params)
-        
-        total_weight = sum(client_weights)
-        num_params = len(client_params[0])
-        
-        # Compute normalized updates - FIXED for different parameter shapes
-        aggregated_params = []
-        for param_idx in range(num_params):
-            try:
-                # Get the shape from global parameters to ensure consistency
-                target_shape = global_params[param_idx].shape
-                weighted_sum = np.zeros(target_shape, dtype=global_params[param_idx].dtype)
-                total_tau = 0
-                
-                for client_idx, params in enumerate(client_params):
-                    # Ensure parameter shapes match
-                    if params[param_idx].shape != target_shape:
-                        logger.warning(f"Parameter shape mismatch at index {param_idx}: "
-                                     f"expected {target_shape}, got {params[param_idx].shape}")
-                        continue
-                    
-                    # Compute client update (delta)
-                    client_update = params[param_idx] - global_params[param_idx]
-                    
-                    # Weight by data size and normalize by local steps
-                    weight = client_weights[client_idx] / total_weight
-                    tau_eff = max(client_steps[client_idx], 1)  # Avoid division by zero
-                    
-                    # Normalized contribution
-                    normalized_update = weight * client_update / tau_eff
-                    weighted_sum += normalized_update
-                    total_tau += weight / tau_eff
-                
-                # Apply the aggregated normalized update
-                if total_tau > 0:
-                    avg_tau = 1.0 / total_tau
-                    final_update = weighted_sum * avg_tau
-                    aggregated_params.append(global_params[param_idx] + final_update)
-                else:
-                    # Fallback to original parameter if total_tau is 0
-                    aggregated_params.append(global_params[param_idx].copy())
-                
-            except Exception as e:
-                logger.error(f"Error in FedNova aggregation for parameter {param_idx}: {e}")
-                # Fallback to FedAvg for this parameter
-                weighted_sum = np.zeros_like(global_params[param_idx])
-                for client_idx, params in enumerate(client_params):
-                    weight = client_weights[client_idx] / total_weight
-                    weighted_sum += weight * params[param_idx]
-                aggregated_params.append(weighted_sum)
-        
-        self.update_round()
-        return aggregated_params
-
-
 class FedAdagradStrategy(AggregationStrategy):
     """
     Federated Adagrad Strategy - IMPROVED VERSION
@@ -512,7 +431,6 @@ AGGREGATION_STRATEGIES = {
     'fedprox': FedProxStrategy,
     'fedadam': FedAdamStrategy,
     'fedyogi': FedYogiStrategy,
-    'fednova': FedNovaStrategy,
     'fedadagrad': FedAdagradStrategy,
     'fedlag': FedLAGStrategy,
 }

@@ -1,12 +1,10 @@
 # fed_learning/rf_client_app.py
-"""Random Forest client for federated learning - fixed implementation."""
+"""Random Forest client for federated learning with hyperparameter search."""
 
 import warnings
 import numpy as np
-import pickle
-import base64
 from flwr.client import ClientApp, NumPyClient
-from flwr.common import Context, parameters_to_ndarrays, ndarrays_to_parameters
+from flwr.common import Context
 
 from fed_learning.task import load_data, set_dataset
 from fed_learning.fed_random_forest import (
@@ -27,7 +25,7 @@ class RFFlowerClient(NumPyClient):
         """Return model parameters as numpy arrays."""
         if self.model is None or not hasattr(self.model, 'estimators_'):
             # Return default hyperparameters as numpy array
-            return [np.array([10.0, 5.0, 2.0, 1.0])]  # n_estimators, max_depth, min_samples_split, min_samples_leaf
+            return [np.array([10.0, 5.0, 2.0, 1.0])]
         
         # Return hyperparameters as numpy array
         hyperparams = [
@@ -42,7 +40,6 @@ class RFFlowerClient(NumPyClient):
         """Set model parameters from numpy arrays."""
         if parameters and len(parameters) > 0:
             hyperparams = parameters[0].tolist()
-            # Ensure hyperparameters are within valid ranges
             hyperparams = self._validate_hyperparams(hyperparams)
             self.model = create_rf_model(hyperparams)
         else:
@@ -51,22 +48,69 @@ class RFFlowerClient(NumPyClient):
     def _validate_hyperparams(self, hyperparams):
         """Ensure hyperparameters are within valid ranges for RandomForest."""
         if len(hyperparams) >= 4:
-            # n_estimators: must be >= 1
-            hyperparams[0] = max(1, int(round(hyperparams[0])))
-            # max_depth: must be >= 1 or None (we use 40 as None marker)
-            hyperparams[1] = max(1, int(round(hyperparams[1])))
-            # min_samples_split: must be >= 2
-            hyperparams[2] = max(2, int(round(hyperparams[2])))
-            # min_samples_leaf: must be >= 1
-            hyperparams[3] = max(1, int(round(hyperparams[3])))
+            hyperparams[0] = max(1, int(round(hyperparams[0])))  # n_estimators >= 1
+            hyperparams[1] = max(1, int(round(hyperparams[1])))  # max_depth >= 1
+            hyperparams[2] = max(2, int(round(hyperparams[2])))  # min_samples_split >= 2
+            hyperparams[3] = max(1, int(round(hyperparams[3])))  # min_samples_leaf >= 1
         return hyperparams
 
-    def fit(self, parameters, config):
-        """Train the model and return updated parameters."""
-        # Set parameters from server
-        self.set_parameters(parameters)
+    def _generate_random_hyperparams(self):
+        """Generate random hyperparameters for Random Forest."""
+        n_estimators = np.random.randint(5, 50)  # 5 to 50 trees
+        max_depth = np.random.choice([40, np.random.randint(3, 20)])  # None (40) or 3-20
+        min_samples_split = np.random.randint(2, 10)  # 2 to 10
+        min_samples_leaf = np.random.randint(1, 5)  # 1 to 5
         
-        # Train the model
+        return [float(n_estimators), float(max_depth), float(min_samples_split), float(min_samples_leaf)]
+
+    def _hyperparameter_search(self):
+        """Perform random hyperparameter search and return best hyperparameters."""
+        n_trials = 8  # Fixed number of random trials
+        
+        # Split training data for validation (80% train, 20% validation)
+        val_size = 0.2
+        split_idx = int(len(self.X_train) * (1 - val_size))
+        X_train_hp = self.X_train[:split_idx]
+        X_val_hp = self.X_train[split_idx:]
+        y_train_hp = self.y_train[:split_idx]
+        y_val_hp = self.y_train[split_idx:]
+        
+        best_score = -1
+        best_hyperparams = None
+        
+        # Random hyperparameter search
+        for trial in range(n_trials):
+            # Generate random hyperparameters
+            trial_hyperparams = self._generate_random_hyperparams()
+            
+            # Create and train model
+            trial_model = create_rf_model(trial_hyperparams)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                trial_model.fit(X_train_hp, y_train_hp)
+            
+            # Evaluate on validation set
+            val_metrics = calculate_rf_metrics(trial_model, X_val_hp, y_val_hp)
+            val_score = val_metrics["Accuracy"]
+            
+            # Keep track of best hyperparameters
+            if val_score > best_score:
+                best_score = val_score
+                best_hyperparams = trial_hyperparams
+        
+        # Fallback to default if no good hyperparameters found
+        if best_hyperparams is None:
+            best_hyperparams = [10.0, 5.0, 2.0, 1.0]
+        
+        return best_hyperparams
+
+    def fit(self, parameters, config):
+        """Train the model with hyperparameter search and return updated parameters."""
+        # Perform hyperparameter search to find best hyperparameters
+        best_hyperparams = self._hyperparameter_search()
+        
+        # Train final model with best hyperparameters on full training data
+        self.model = create_rf_model(best_hyperparams)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             self.model.fit(self.X_train, self.y_train)
@@ -84,7 +128,6 @@ class RFFlowerClient(NumPyClient):
         # Create a model with received parameters and train it
         if parameters and len(parameters) > 0:
             hyperparams = parameters[0].tolist()
-            # Ensure hyperparameters are within valid ranges
             hyperparams = self._validate_hyperparams(hyperparams)
             eval_model = create_rf_model(hyperparams)
         else:
@@ -98,7 +141,7 @@ class RFFlowerClient(NumPyClient):
         # Calculate test metrics
         test_metrics = calculate_rf_metrics(eval_model, self.X_test, self.y_test)
         
-        # Calculate loss (we'll use 1 - accuracy as a simple loss)
+        # Calculate loss (1 - accuracy as a simple loss)
         loss = 1.0 - test_metrics["Accuracy"]
         
         return loss, len(self.X_test), test_metrics
