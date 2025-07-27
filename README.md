@@ -1,48 +1,70 @@
-# fed-learning · Flower ⚘ + scikit-learn
+# Federated Learning Comparison
 
-Federated-learning demo on two tabular datasets (**Iris** and **Adult
-Income**) using [Flower](https://flower.ai).
+Compare federated vs centralized machine learning performance across multiple models and datasets.
 
----
-
-## Install
+## Quick Start
 
 ```bash
-git clone <repo>
-cd fed-learning
-python -m venv .venv && source .venv/bin/activate   # optional
+# Run complete pipeline (recommended)
+chmod +x pipeline_script.sh
+./pipeline_script.sh
+```
+
+**Or run individual components:**
+
+```bash
+# Install dependencies
 pip install -e .
+
+# Run federated experiments
+python federated_ml.py
+
+# Run centralized experiments  
+python centralized_ml.py
+
+# Compare results
+python comparison.py
 ```
 
----
+## Models & Datasets
 
-## One simulation
+**Models**: Logistic Regression, Random Forest, SVM  
+**Datasets**: Iris, Adult Income  
+**Strategies**: FedAvg, FedProx, FedMedian
 
-```bash
-flwr run .                                # defaults to Iris
-flwr run . --run-config 'dataset="adult"' # run Adult
+## Pipeline Script
+
+The `pipeline_script.sh` automates the complete workflow:
+- Sets up virtual environment
+- Installs dependencies
+- Runs federated learning experiments
+- Runs centralized learning experiments
+- Performs comparison analysis
+- Generates all result files
+
+## Project Structure
+
+```
+fed_learning/           # Core federated learning modules
+data/                   # Dataset files (iris.csv, adult.csv)
+results/                # Output CSV files and logs
+pipeline_script.sh      # Complete automated pipeline
+centralized_ml.py       # Centralized learning experiments
+federated_ml.py         # Federated learning experiments
+comparison.py           # Performance comparison analysis
 ```
 
-Tune with `num-server-rounds`, `local-epochs`, `penalty`, etc.
+## Requirements
 
----
+- Python 3.8+
+- scikit-learn >= 1.3.0
+- flwr[simulation] >= 1.19.0
+- pandas >= 2.0.0
 
-## Batch run + CSV
+## Data Format
 
-`run.sh` launches both datasets, grabs **round-5** loss/accuracy from each
-log and appends to `results/results.csv`.
+Place your datasets in the `data/` directory:
+- `data/iris.csv` - Iris classification dataset
+- `data/adult.csv` - Adult income prediction dataset
 
-```bash
-chmod +x run.sh   # once
-./run.sh
-```
-
-All logs live in `results/*.log`.
-
----
-
-## Resources
-
-* Docs  <https://flower.ai/docs>
-* GitHub ⭐ <https://github.com/adap/flower>
-* Community [Slack](https://flower.ai/join-slack/) | [Discuss](https://discuss.flower.ai/)
+Results are saved to `results/` as CSV files for analysis.
