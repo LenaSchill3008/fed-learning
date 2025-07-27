@@ -1,6 +1,3 @@
-# client_app.py
-"""fed-learning: A Flower / sklearn app."""
-
 import warnings
 from sklearn.metrics import log_loss, precision_score, recall_score, f1_score
 from flwr.client import ClientApp, NumPyClient

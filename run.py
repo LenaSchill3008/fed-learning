@@ -320,7 +320,7 @@ class FederatedLearningRunner:
         set_dataset(dataset)
         num_clients = 3
         
-        # Only use basic strategies for RF (hyperparameter averaging)
+        # Basic strategies supported for RF (hyperparameter averaging)
         if strategy not in ["fedavg", "fedprox", "fedmedian"]:
             print(f"Strategy {strategy} not supported for Random Forest, using FedAvg")
             strategy = "fedavg"
@@ -372,15 +372,24 @@ class FederatedLearningRunner:
                     with open(log_file, 'a') as f:
                         f.write(f"  Client {client_id}: accuracy = {local_metrics['Accuracy']:.3f}\n")
                 
-                # Aggregate hyperparameters (simple weighted average for RF)
-                total_weight = sum(client_weights)
-                new_hyperparams = []
-                for param_idx in range(len(client_hyperparams[0])):
-                    weighted_sum = 0
-                    for client_idx in range(num_clients):
-                        weight = client_weights[client_idx] / total_weight
-                        weighted_sum += weight * client_hyperparams[client_idx][param_idx]
-                    new_hyperparams.append(weighted_sum)
+                # Aggregate hyperparameters based on strategy
+                if strategy == "fedmedian":
+                    # Use median aggregation for hyperparameters
+                    new_hyperparams = []
+                    for param_idx in range(len(client_hyperparams[0])):
+                        param_values = [client_hyperparams[client_idx][param_idx] for client_idx in range(num_clients)]
+                        median_value = np.median(param_values)
+                        new_hyperparams.append(median_value)
+                else:
+                    # Use weighted average (fedavg, fedprox)
+                    total_weight = sum(client_weights)
+                    new_hyperparams = []
+                    for param_idx in range(len(client_hyperparams[0])):
+                        weighted_sum = 0
+                        for client_idx in range(num_clients):
+                            weight = client_weights[client_idx] / total_weight
+                            weighted_sum += weight * client_hyperparams[client_idx][param_idx]
+                        new_hyperparams.append(weighted_sum)
                 
                 global_hyperparams = new_hyperparams
                 
@@ -425,6 +434,7 @@ class FederatedLearningRunner:
                     f.write(f"  Global accuracy: {global_accuracy:.3f}\n")
                     f.write(f"  Global loss: {global_loss:.3f}\n")
                     f.write(f"  Precision: {precision:.3f}, Recall: {recall:.3f}, F1: {f1:.3f}\n")
+                    f.write(f"  Strategy used: {strategy.upper()}\n")
             
             # Return final metrics
             final_metrics = {
@@ -492,9 +502,9 @@ class FederatedLearningRunner:
                 for strategy in strategies:
                     current_experiment += 1
                     
-                    # Skip advanced strategies for SVM and Random Forest (only use basic ones)
-                    if model in ["svm", "random_forest"] and strategy not in ["fedavg", "fedprox"]:
-                        print(f"Skipping {strategy.upper()} for {model.upper()} (not compatible)")
+                    # Only skip FedLAG for SVM and Random Forest (too complex for these models)
+                    if model in ["svm", "random_forest"] and strategy == "fedlag":
+                        print(f"Skipping {strategy.upper()} for {model.upper()} (gradient tracking not compatible)")
                         continue
                     
                     try:
@@ -577,7 +587,7 @@ def main():
     print("Federated Learning Experiment Runner with Multiple Strategies")
     print("Supporting: Logistic Regression, Random Forest, and SVM")
     print("Datasets: Iris and Adult")
-    print("Strategies: FedAvg, FedProx, FedMedian, FedLAG")
+    print("Strategies: FedAvg, FedProx, FedMedian")
     print("\n" + "="*80)
     
     print("\nStarting experiments with multiple aggregation strategies...\n")

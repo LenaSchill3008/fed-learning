@@ -1,13 +1,3 @@
-"""
-Federated Learning Aggregation Strategies - UPDATED VERSION
-
-This module implements various parameter aggregation strategies for federated learning,
-including FedAvg, FedProx, FedMedian, and FedLAG.
-
-Removed: FedAdam, FedYogi, FedAdagrad (replaced with FedMedian)
-Added: FedMedian for robust aggregation against outliers
-"""
-
 import numpy as np
 from typing import List, Dict, Any, Optional, Tuple
 from abc import ABC, abstractmethod
@@ -43,13 +33,6 @@ class AggregationStrategy(ABC):
 
 
 class FedAvgStrategy(AggregationStrategy):
-    """
-    Federated Averaging (FedAvg) Strategy
-    
-    Simply computes weighted average of client parameters.
-    Reference: McMahan et al., "Communication-Efficient Learning of Deep Networks 
-    from Decentralized Data", AISTATS 2017
-    """
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -78,14 +61,7 @@ class FedAvgStrategy(AggregationStrategy):
 
 
 class FedProxStrategy(AggregationStrategy):
-    """
-    Federated Proximal (FedProx) Strategy
-    
-    Uses FedAvg aggregation but relies on proximal term during local training.
-    The aggregation itself is identical to FedAvg.
-    Reference: Li et al., "Federated Optimization in Heterogeneous Networks", MLSys 2020
-    """
-    
+
     def __init__(self, mu: float = 0.01, **kwargs):
         super().__init__(**kwargs)
         self.mu = mu  # Proximal term coefficient
@@ -114,13 +90,6 @@ class FedProxStrategy(AggregationStrategy):
 
 
 class FedMedianStrategy(AggregationStrategy):
-    """
-    Federated Median (FedMedian) Strategy
-    
-    Uses coordinate-wise median for aggregation instead of weighted averaging.
-    More robust to outliers and Byzantine failures than FedAvg.
-    Reference: Yin et al., "Byzantine-Robust Distributed Learning: Towards Optimal Statistical Rates", ICML 2018
-    """
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -153,114 +122,30 @@ class FedMedianStrategy(AggregationStrategy):
         return aggregated_params
 
 
-class FedLAGStrategy(AggregationStrategy):
-    """
-    Federated Learning with Gradient Tracking (FedLAG) Strategy
-    
-    Maintains a running estimate of the global gradient to correct for client drift.
-    Includes parameter clipping for stability.
-    Reference: Inspired by LAG (Local and Global) methods
-    """
-    
-    def __init__(self, eta: float = 0.01, momentum: float = 0.9, clip_norm: float = 1.0, **kwargs):
-        super().__init__(**kwargs)
-        self.eta = eta
-        self.momentum = momentum
-        self.clip_norm = clip_norm
-        self.name = "FedLAG"
-        
-        # Gradient tracking state
-        self.global_grad_estimate = None
-        self.velocity = None
-    
-    def aggregate(self, 
-                 client_params: List[List[np.ndarray]], 
-                 client_weights: List[float], 
-                 global_params: List[np.ndarray],
-                 **kwargs) -> List[np.ndarray]:
-        
-        # Initialize state if first round
-        if self.global_grad_estimate is None:
-            self.global_grad_estimate = [np.zeros_like(param) for param in global_params]
-            self.velocity = [np.zeros_like(param) for param in global_params]
-        
-        # Step 1: Compute weighted average
-        total_weight = sum(client_weights)
-        num_params = len(client_params[0])
-        
-        averaged_params = []
-        for param_idx in range(num_params):
-            weighted_sum = np.zeros_like(client_params[0][param_idx])
-            for client_idx, params in enumerate(client_params):
-                weight = client_weights[client_idx] / total_weight
-                weighted_sum += weight * params[param_idx]
-            averaged_params.append(weighted_sum)
-        
-        # Step 2: Update global gradient estimate and apply momentum with clipping
-        new_params = []
-        for i in range(num_params):
-            # Current "gradient" (parameter change)
-            current_grad = averaged_params[i] - global_params[i]
-            
-            # Update global gradient estimate with momentum
-            self.global_grad_estimate[i] = (
-                self.momentum * self.global_grad_estimate[i] + 
-                (1 - self.momentum) * current_grad
-            )
-            
-            # Update velocity
-            self.velocity[i] = (
-                self.momentum * self.velocity[i] + 
-                self.eta * self.global_grad_estimate[i]
-            )
-            
-            # Apply update with clipping
-            update = self.velocity[i]
-            update_norm = np.linalg.norm(update)
-            if update_norm > self.clip_norm:
-                update = update * (self.clip_norm / update_norm)
-            
-            new_param = global_params[i] + update
-            new_params.append(new_param)
-        
-        self.update_round()
-        return new_params
-
-
 # Strategy registry for easy access
 AGGREGATION_STRATEGIES = {
     'fedavg': FedAvgStrategy,
     'fedprox': FedProxStrategy,
-    'fedmedian': FedMedianStrategy,
-    'fedlag': FedLAGStrategy,
+    'fedmedian': FedMedianStrategy
 }
 
 
 def get_strategy_params_for_dataset(strategy_name: str, dataset: str) -> dict:
     """
     Get dataset-specific parameters for strategies to improve stability.
-    
-    Args:
-        strategy_name: Name of the strategy
-        dataset: Name of the dataset
-        
-    Returns:
-        Dictionary of strategy-specific parameters
     """
     
-    if dataset.lower() in ["adult", "wine_quality"]:
+    if dataset.lower() in ["adult"]:
         # More conservative parameters for complex datasets
         strategy_params = {
             "fedprox": {"mu": 0.001},  # Much smaller regularization
             "fedmedian": {},  # No specific parameters for FedMedian
-            "fedlag": {"eta": 0.001, "momentum": 0.5, "clip_norm": 0.5}
         }
     else:
         # Standard parameters for simpler datasets like Iris
         strategy_params = {
             "fedprox": {"mu": 0.01},
             "fedmedian": {},  # No specific parameters for FedMedian
-            "fedlag": {"eta": 0.01, "momentum": 0.9, "clip_norm": 1.0}
         }
     
     return strategy_params.get(strategy_name.lower(), {})

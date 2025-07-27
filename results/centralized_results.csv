@@ -1,0 +1,7 @@
+model,dataset,loss,accuracy,precision,recall,f1_score
+logistic_regression,iris,0.076203,1.0,1.0,1.0,1.0
+logistic_regression,adult,0.321904,0.851681,0.810907,0.759907,0.779925
+random_forest,iris,0.0,1.0,1.0,1.0,1.0
+random_forest,adult,0.173346,0.826654,0.822689,0.667426,0.697682
+svm,iris,0.039984,1.0,1.0,1.0,1.0
+svm,adult,0.515773,0.702134,0.643176,0.681894,0.647857

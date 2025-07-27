@@ -56,7 +56,7 @@ class RFFlowerClient(NumPyClient):
 
     def _generate_random_hyperparams(self):
         """Generate random hyperparameters for Random Forest."""
-        n_estimators = np.random.randint(5, 50)  # 5 to 50 trees
+        n_estimators = np.random.randint(5, 100)  # 5 to 50 trees
         max_depth = np.random.choice([40, np.random.randint(3, 20)])  # None (40) or 3-20
         min_samples_split = np.random.randint(2, 10)  # 2 to 10
         min_samples_leaf = np.random.randint(1, 5)  # 1 to 5
@@ -65,7 +65,7 @@ class RFFlowerClient(NumPyClient):
 
     def _hyperparameter_search(self):
         """Perform random hyperparameter search and return best hyperparameters."""
-        n_trials = 8  # Fixed number of random trials
+        n_trials = 50  # Fixed number of random trials
         
         # Split training data for validation (80% train, 20% validation)
         val_size = 0.2

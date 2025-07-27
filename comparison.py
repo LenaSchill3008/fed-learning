@@ -152,7 +152,7 @@ class MLComparison:
         # Save results
         self.save_results(combined_df, analysis_df)
         
-        print(f"\n✅ Comparison complete!")
+        print(f"\n Comparison complete!")
 
 
 def main():

@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # run_pipeline.sh - Complete Federated vs Centralized ML Pipeline
-# This script runs the complete comparison from environment setup to final analysis
 
 set -e  # Exit on any error
 
@@ -147,36 +146,11 @@ fi
 # Display final results
 print_step "Displaying final results..."
 echo ""
-echo "📊 EXPERIMENT SUMMARY:"
+echo " EXPERIMENT SUMMARY:"
 echo "====================="
-echo "✅ Federated learning experiments: COMPLETED"
-echo "✅ Centralized learning experiments: COMPLETED"  
-echo "✅ Comparison analysis: COMPLETED"
-echo ""
-echo "📁 Generated files:"
-echo "  - $RESULTS_DIR/results.csv (federated results)"
-echo "  - $RESULTS_DIR/centralized_results.csv (centralized results)"
-echo "  - $RESULTS_DIR/comparison_results.csv (combined results)"
-echo "  - $RESULTS_DIR/analysis_results.csv (detailed analysis)"
-echo ""
-
-# Show quick comparison if available
-if [ -f "$RESULTS_DIR/comparison_results.csv" ]; then
-    echo "🔍 QUICK RESULTS PREVIEW:"
-    echo "========================"
-    head -n 10 $RESULTS_DIR/comparison_results.csv | column -t -s ','
-    echo ""
-    echo "For detailed analysis, check the comparison output above or view:"
-    echo "  - $RESULTS_DIR/analysis_results.csv"
-fi
-
-print_success "Pipeline completed successfully!"
-echo ""
-echo "💡 Next steps:"
-echo "  - Review the comparison analysis output above"
-echo "  - Check detailed results in the $RESULTS_DIR/ directory"
-echo "  - Use the generated CSV files for further analysis"
-echo ""
+echo " Federated learning experiments: COMPLETED"
+echo " Centralized learning experiments: COMPLETED"  
+echo " Comparison analysis: COMPLETED"
 
 # Deactivate virtual environment
 deactivate

@@ -11,7 +11,7 @@ from typing import Tuple, Union
 # Globals and configuration
 DATASET_NAME = "iris"          
 _dataset_cache = {}              
-MODEL_TYPE = "logistic"  # "logistic" or "svm"
+MODEL_TYPE = "logistic"  
 
 CSV_PATHS = {
     "iris":  "data/iris.csv",
@@ -27,22 +27,20 @@ LABEL_COLUMNS = {
     "wine_quality": "quality_binary",
 }
 
-# Public helper so server/client can switch dataset
+# helper so server/client can switch dataset
 def set_dataset(name: str) -> None:
-    """Select which dataset to use globally (`iris`, `adult`, `breast_cancer`, or `wine_quality`)."""
     global DATASET_NAME
     DATASET_NAME = name
 
 def set_model_type(model_type: str) -> None:
-    """Select which model type to use globally (`logistic` or `svm`)."""
     global MODEL_TYPE
     MODEL_TYPE = model_type
 
-# load full dataset into the cache (runs only once per dataset)
+# load full dataset 
 def _ensure_dataset_loaded() -> None:
-    """Populate `_dataset_cache[DATASET_NAME]` if it isn't cached yet."""
+
     if DATASET_NAME in _dataset_cache:
-        return                                  # already loaded
+        return                                 
 
     df = pd.read_csv(CSV_PATHS[DATASET_NAME])
     label_col = LABEL_COLUMNS[DATASET_NAME]
@@ -98,7 +96,7 @@ def get_model(model_type: str = None, penalty: str = "l2", local_epochs: int = 1
     elif model_type == "svm":
         # For SVM, we use probability=True to get probability estimates
         return SVC(
-            kernel=kwargs.get("kernel", "linear"), #rbf
+            kernel=kwargs.get("kernel", "rbf"),
             C=kwargs.get("C", 1.0),
             gamma=kwargs.get("gamma", "scale"),
             probability=True,  # Enable probability estimates
