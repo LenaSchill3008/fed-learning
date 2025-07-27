@@ -1,12 +1,8 @@
-import subprocess
 import pandas as pd
-import re
-import os
 import sys
-import json
 import warnings
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict
 
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -145,6 +141,7 @@ class FederatedLearningRunner:
                 
                 # Each client trains locally
                 for client_id in range(num_clients):
+
                     # Load client data
                     X_train, X_test, y_train, y_test = load_data(client_id, num_clients)
                     
@@ -316,8 +313,11 @@ class FederatedLearningRunner:
             return {"loss": "ERROR", "accuracy": "ERROR", "precision": "ERROR", 
                    "recall": "ERROR", "f1_score": "ERROR"}
     
-    def run_random_forest_experiment(self, dataset: str, strategy: str, rounds: int, log_file: Path) -> Dict[str, str]:
-        """Run Random Forest federated learning experiment."""
+    def run_random_forest_experiment(self, dataset, strategy, rounds, log_file):
+        
+        """
+        Run Random Forest federated learning experiment
+        """
         
 
         from fed_learning.task import set_dataset, load_data
@@ -384,6 +384,7 @@ class FederatedLearningRunner:
                 # Aggregate hyperparameters based on strategy
                 if strategy == "fedmedian":
                     # Use median aggregation for hyperparameters
+
                     new_hyperparams = []
                     for param_idx in range(len(client_hyperparams[0])):
                         param_values = [client_hyperparams[client_idx][param_idx] for client_idx in range(num_clients)]
@@ -465,16 +466,21 @@ class FederatedLearningRunner:
             return final_metrics
             
         except Exception as e:
+
             with open(log_file, 'a') as f:
                 f.write(f"ERROR: {str(e)}\n")
             print(f"Error in Random Forest experiment: {e}")
+
             import traceback
+
             traceback.print_exc()
+
             return {"loss": "ERROR", "accuracy": "ERROR", "precision": "ERROR", 
                    "recall": "ERROR", "f1_score": "ERROR"}
     
-    def save_results(self, model_type: str, dataset: str, strategy: str, metrics: Dict[str, str]):
-        """Save results to CSV file with strategy information."""
+
+    def save_results(self, model_type, dataset, strategy, metrics):
+
         new_row = {
             "model": model_type,
             "dataset": dataset,
@@ -488,7 +494,11 @@ class FederatedLearningRunner:
         df.to_csv(self.csv_file, index=False)
     
     def run_all_experiments(self):
-        """Run all combinations of models, datasets, and strategies."""
+        
+        """
+        Run all combinations of models, datasets, and strategies
+        """
+
         models = ["logistic_regression", "random_forest", "svm"]
         datasets = ["iris", "adult"]
         

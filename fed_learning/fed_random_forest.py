@@ -1,10 +1,8 @@
-import numpy as np
-from typing import List, Dict, Any, Tuple
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 
-def get_rf_hyperparams(model: RandomForestClassifier) -> List[float]:
+def get_rf_hyperparams(model: RandomForestClassifier):
 
     return [
         float(model.n_estimators),
@@ -14,7 +12,7 @@ def get_rf_hyperparams(model: RandomForestClassifier) -> List[float]:
     ]
 
 
-def set_rf_hyperparams(hyperparams: List[float]) -> Dict[str, Any]:
+def set_rf_hyperparams(hyperparams):
 
     # Ensure hyperparameters are within valid ranges
     n_estimators = max(1, int(round(hyperparams[0])))
@@ -32,7 +30,7 @@ def set_rf_hyperparams(hyperparams: List[float]) -> Dict[str, Any]:
     }
 
 
-def create_rf_model(hyperparams: List[float] = None) -> RandomForestClassifier:
+def create_rf_model(hyperparams = None):
    
     if hyperparams is None:
         # Default hyperparameters
@@ -49,7 +47,7 @@ def create_rf_model(hyperparams: List[float] = None) -> RandomForestClassifier:
         return RandomForestClassifier(**params)
 
 
-def calculate_rf_metrics(model: RandomForestClassifier, X: np.ndarray, y: np.ndarray) -> Dict[str, float]:
+def calculate_rf_metrics(model, X, y):
    
     if not hasattr(model, 'classes_'):
         return {"Accuracy": 0.0, "Precision": 0.0, "Recall": 0.0, "F1_Score": 0.0}

@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # run_pipeline.sh - Complete Federated vs Centralized ML Pipeline
 
 set -e  # Exit on any error
@@ -105,7 +103,17 @@ print_success "Previous results cleaned"
 
 # Run federated learning experiments
 print_step "Running federated learning experiments..."
-echo "This may take a while..."
+echo "This may take several minutes..."
+
+if python federated_ml.py; then
+    print_success "Federated experiments completed"
+fi
+
+# Check federated results
+if [ ! -f "$RESULTS_DIR/results.csv" ]; then
+    print_error "Federated results file not generated"
+    exit 1
+fi
 
 # Run centralized learning experiments  
 print_step "Running centralized learning experiments..."
@@ -131,11 +139,8 @@ else
     exit 1
 fi
 
-# Display final results
-print_step "Displaying final results..."
+
 echo ""
-echo " EXPERIMENT SUMMARY:"
-echo "====================="
 echo " Federated learning experiments: COMPLETED"
 echo " Centralized learning experiments: COMPLETED"  
 echo " Comparison analysis: COMPLETED"

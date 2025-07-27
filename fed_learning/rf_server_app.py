@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict, List, Tuple, Optional
+from typing import List, Tuple
 from flwr.common import Context, Metrics, ndarrays_to_parameters
 from flwr.server import ServerApp, ServerAppComponents, ServerConfig
 from flwr.server.strategy import FedAvg
@@ -7,8 +7,12 @@ from flwr.server.strategy import FedAvg
 from fed_learning.task import set_dataset
 
 
-def rf_metrics_aggregate(results: List[Tuple[int, Metrics]]) -> Dict:
-    """Aggregate metrics from multiple clients using weighted averaging."""
+def rf_metrics_aggregate(results: Metrics):
+    
+    """
+    Aggregate metrics from multiple clients using weighted averaging
+    """
+
     if not results:
         return {}
     
@@ -36,6 +40,7 @@ def rf_metrics_aggregate(results: List[Tuple[int, Metrics]]) -> Dict:
 
 
 def rf_server_fn(context: Context):
+    
     # Read config values
     num_rounds = context.run_config["num-server-rounds"]
     dataset_name = context.run_config.get("dataset", "iris")

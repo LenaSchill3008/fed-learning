@@ -1,4 +1,3 @@
-from typing import Dict, List, Tuple
 from flwr.common import Context, ndarrays_to_parameters, Metrics
 from flwr.server import ServerApp, ServerAppComponents, ServerConfig
 from flwr.server.strategy import FedAvg
@@ -11,12 +10,17 @@ from fed_learning.task import (
 )
 
 
-def metrics_aggregate(results: List[Tuple[int, Metrics]]) -> Dict:
-    """Aggregate metrics from multiple clients using weighted averaging."""
+def metrics_aggregate(results):
+    
+    """
+    Aggregate metrics from multiple clients using weighted averaging
+    """
+    
     if not results:
         return {}
     
     total_samples = 0
+
     # Collecting metrics
     aggregated_metrics = {
         "Accuracy": 0,
@@ -36,12 +40,14 @@ def metrics_aggregate(results: List[Tuple[int, Metrics]]) -> Dict:
     
     # Compute the weighted average for each metric
     for key in aggregated_metrics.keys():
+
         aggregated_metrics[key] = round(aggregated_metrics[key] / total_samples, 6)
     
     return aggregated_metrics
 
 
 def server_fn(context: Context):
+
     # Read config values
     num_rounds   = context.run_config["num-server-rounds"]
     penalty      = context.run_config["penalty"]
@@ -65,6 +71,7 @@ def server_fn(context: Context):
         evaluate_metrics_aggregation_fn=metrics_aggregate,
         fit_metrics_aggregation_fn=metrics_aggregate,
     )
+
     config = ServerConfig(num_rounds=num_rounds)
 
     return ServerAppComponents(strategy=strategy, config=config)

@@ -5,7 +5,6 @@ from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import train_test_split 
 from sklearn.utils import shuffle
-from typing import Tuple, Union
 
 # Globals and configuration
 DATASET_NAME = "iris"          
@@ -53,7 +52,7 @@ def _ensure_dataset_loaded() -> None:
     _dataset_cache[DATASET_NAME] = (X_final, y_final)
 
 
-def load_data(partition_id: int, num_partitions: int) -> Tuple[np.ndarray, ...]:
+def load_data(partition_id, num_partitions):
     """Return stratified train/test split for the given client partition (IID)."""
     _ensure_dataset_loaded()
     X_all, y_all = _dataset_cache[DATASET_NAME]
@@ -76,7 +75,7 @@ def load_data(partition_id: int, num_partitions: int) -> Tuple[np.ndarray, ...]:
     return X_train, X_test, y_train, y_test
 
 
-def get_model(model_type: str = None, penalty: str = "l2", local_epochs: int = 100, **kwargs) -> Union[LogisticRegression, SVC]:
+def get_model(model_type = None, penalty = "l2", local_epochs = 100, **kwargs):
     """Get model based on type (logistic or svm)."""
     if model_type is None:
         model_type = MODEL_TYPE
@@ -106,7 +105,7 @@ def get_model(model_type: str = None, penalty: str = "l2", local_epochs: int = 1
     else:
         raise ValueError(f"Unknown model type: {model_type}")
 
-def get_model_params(model) -> list:
+def get_model_params(model):
 
     if isinstance(model, LogisticRegression):
         return [model.coef_, model.intercept_] if model.fit_intercept else [model.coef_]

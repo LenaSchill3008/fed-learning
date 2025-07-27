@@ -115,6 +115,7 @@ class RFFlowerClient(NumPyClient):
         
         return best_hyperparams
 
+
     def fit(self, parameters, config):
 
         """
@@ -126,6 +127,7 @@ class RFFlowerClient(NumPyClient):
         
         # Train final model with best hyperparameters on full training data
         self.model = create_rf_model(best_hyperparams)
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             self.model.fit(self.X_train, self.y_train)
@@ -164,6 +166,7 @@ class RFFlowerClient(NumPyClient):
 
 
 def rf_client_fn(context: Context):
+
     # Read config
     partition_id = context.node_config["partition-id"]
     num_partitions = context.node_config["num-partitions"]

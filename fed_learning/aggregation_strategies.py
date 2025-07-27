@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List
 from abc import ABC, abstractmethod
 import logging
 
@@ -142,7 +142,7 @@ def get_strategy_params_for_dataset(strategy_name: str, dataset: str) -> dict:
         # More conservative parameters for complex datasets
         strategy_params = {
             "fedprox": {"mu": 0.001},  # Much smaller regularization
-            "fedmedian": {},  # No specific parameters for FedMedian
+            "fedmedian": {},
         }
     else:
         # Standard parameters for simpler datasets like Iris
@@ -168,7 +168,7 @@ def get_strategy(strategy_name, dataset = None, **kwargs):
     # Get dataset-specific parameters
     if dataset:
         default_params = get_strategy_params_for_dataset(strategy_name, dataset)
-        # Override defaults with any provided kwargs
+        # Override defaults with provided kwargs
         default_params.update(kwargs)
         kwargs = default_params
     
@@ -176,38 +176,5 @@ def get_strategy(strategy_name, dataset = None, **kwargs):
 
 
 def list_strategies():
-    """Return list of available aggregation strategy names."""
+
     return list(AGGREGATION_STRATEGIES.keys())
-
-
-# Example usage and testing
-if __name__ == "__main__":
-    # Example: Test different strategies
-    np.random.seed(42)
-    
-    # Mock client parameters (3 clients, 2 parameter arrays each)
-    client_params = [
-        [np.random.randn(5, 3), np.random.randn(3)],  # Client 0
-        [np.random.randn(5, 3), np.random.randn(3)],  # Client 1  
-        [np.random.randn(5, 3), np.random.randn(3)],  # Client 2
-    ]
-    client_weights = [100, 150, 200]  # Data sizes
-    global_params = [np.zeros((5, 3)), np.zeros(3)]  # Initial global parameters
-    
-    print("Testing Aggregation Strategies")
-    print("=" * 40)
-    
-    for strategy_name in list_strategies():
-        print(f"\nTesting {strategy_name.upper()}")
-        
-        try:
-            # Test with dataset-specific parameters
-            strategy = get_strategy(strategy_name, dataset="adult")
-            result = strategy.aggregate(client_params, client_weights, global_params)
-            
-            # Print some basic stats
-            param_norms = [np.linalg.norm(param) for param in result]
-            print(f"   Success - Parameter norms: {[f'{norm:.3f}' for norm in param_norms]}")
-            
-        except Exception as e:
-            print(f"   Error: {e}")

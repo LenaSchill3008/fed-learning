@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import log_loss, accuracy_score, precision_score, recall_score, f1_score
 from sklearn.utils import shuffle
 from pathlib import Path
-from typing import Dict, Tuple
+
 
 
 class CentralizedMLRunner:
@@ -60,7 +60,7 @@ class CentralizedMLRunner:
         return X_final, y_final
     
 
-    def train_logistic_regression(self, dataset_name: str) -> Dict[str, float]:
+    def train_logistic_regression(self, dataset_name):
  
         print(f"Training Logistic Regression on {dataset_name}")
         
@@ -201,7 +201,7 @@ class CentralizedMLRunner:
             "f1_score": f1
         }
     
-    def save_results(self, model_type: str, dataset: str, metrics: Dict[str, float]):
+    def save_results(self, model_type, dataset, metrics):
         """Save results to CSV file."""
         new_row = {
             "model": model_type,
